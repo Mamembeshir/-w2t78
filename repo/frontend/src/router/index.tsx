@@ -8,6 +8,11 @@ import { useAuth } from '@/hooks/useAuth'
 
 // ── Lazy-loaded pages ─────────────────────────────────────────────────────────
 const InventoryDashboard  = lazy(() => import('@/pages/inventory/InventoryDashboard').then((m) => ({ default: m.InventoryDashboard })))
+const ReceiveStockPage    = lazy(() => import('@/pages/inventory/ReceiveStockPage').then((m) => ({ default: m.ReceiveStockPage })))
+const IssueStockPage      = lazy(() => import('@/pages/inventory/IssueStockPage').then((m) => ({ default: m.IssueStockPage })))
+const TransferPage        = lazy(() => import('@/pages/inventory/TransferPage').then((m) => ({ default: m.TransferPage })))
+const CycleCountPage      = lazy(() => import('@/pages/inventory/CycleCountPage').then((m) => ({ default: m.CycleCountPage })))
+const InventorySearchPage = lazy(() => import('@/pages/inventory/InventorySearchPage').then((m) => ({ default: m.InventorySearchPage })))
 const CrawlingDashboard   = lazy(() => import('@/pages/crawling/CrawlingDashboard').then((m) => ({ default: m.CrawlingDashboard })))
 const AdminDashboard      = lazy(() => import('@/pages/admin/AdminDashboard').then((m) => ({ default: m.AdminDashboard })))
 const NotImplementedPage  = lazy(() => import('@/pages/common/NotImplementedPage').then((m) => ({ default: m.NotImplementedPage })))
@@ -37,11 +42,11 @@ export const router = createBrowserRouter([
             element: <ProtectedRoute allowedRoles={['ADMIN', 'INVENTORY_MANAGER']} />,
             children: [
               { index: true,          element: <Lazy><InventoryDashboard /></Lazy> },
-              { path: 'receive',      element: <Lazy><NotImplementedPage /></Lazy> },
-              { path: 'issue',        element: <Lazy><NotImplementedPage /></Lazy> },
-              { path: 'transfer',     element: <Lazy><NotImplementedPage /></Lazy> },
-              { path: 'cycle',        element: <Lazy><NotImplementedPage /></Lazy> },
-              { path: 'search',       element: <Lazy><NotImplementedPage /></Lazy> },
+              { path: 'receive',      element: <Lazy><ReceiveStockPage /></Lazy> },
+              { path: 'issue',        element: <Lazy><IssueStockPage /></Lazy> },
+              { path: 'transfer',     element: <Lazy><TransferPage /></Lazy> },
+              { path: 'cycle',        element: <Lazy><CycleCountPage /></Lazy> },
+              { path: 'search',       element: <Lazy><InventorySearchPage /></Lazy> },
             ],
           },
 

@@ -33,8 +33,10 @@ urlpatterns = [
     path("api/health/", health, name="health"),
     # Auth + User management (Phase 3)
     path("api/", include("accounts.urls")),
+    # Warehouse — Phase 5
+    path("api/", include("warehouse.urls")),
     # Inventory — Phase 5
-    # path("api/", include("inventory.urls")),
+    path("api/", include("inventory.urls")),
     # Crawling — Phase 6
     # path("api/crawl/", include("crawling.urls")),
     # Notifications — Phase 7

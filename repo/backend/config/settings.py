@@ -248,6 +248,16 @@ CELERY_BEAT_SCHEDULE = {
         "task": "audit.purge_old_audit_logs",
         "schedule": crontab(hour=2, minute=0),
     },
+    # Daily slow-moving stock detection at 01:00 UTC
+    "flag-slow-moving-items": {
+        "task": "inventory.flag_slow_moving_items",
+        "schedule": crontab(hour=1, minute=0),
+    },
+    # Safety stock breach check — every minute
+    "check-safety-stock": {
+        "task": "inventory.check_safety_stock",
+        "schedule": 60.0,  # seconds
+    },
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
