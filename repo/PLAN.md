@@ -18,12 +18,12 @@
 - [x] Create root `.gitignore` covering Python, Node, Docker, env files
 
 ### 1.2 Docker Setup
-- [ ] Write `docker-compose.yml` with services: `db` (MySQL 8), `redis`, `backend`, `worker`, `frontend`
-- [ ] Write `docker/mysql/init.sql` for database and user creation
-- [ ] Write `backend/Dockerfile` (Python 3.12, Gunicorn)
-- [ ] Write `frontend/Dockerfile` (Node 20, Vite build)
-- [ ] Add `docker/.env.example` with all required env vars documented
-- [ ] Verify all containers start cleanly with `docker-compose up`
+- [x] Write `docker-compose.yml` with services: `db` (MySQL 8), `redis`, `backend`, `worker`, `beat`, `frontend`
+- [x] Write `docker/mysql/init.sh` for database and user creation (uses env vars; creates primary + test DBs)
+- [x] Write `backend/Dockerfile` (Python 3.12, Gunicorn)
+- [x] Write `frontend/Dockerfile` (Node 20, multi-stage: dev/build/production)
+- [x] Add `docker/.env.example` with all required env vars documented
+- [x] Verify all containers start cleanly with `docker compose up` (all 6 running, `/api/health/` → 200)
 
 ### 1.3 run_test.sh
 - [ ] Create `run_test.sh` at repo root
@@ -473,7 +473,7 @@
 
 | Phase | Status | Tasks Done | Tasks Total |
 |---|---|---|---|
-| Phase 1: Setup + Docker | [-] In Progress | 5 | 16 |
+| Phase 1: Setup + Docker | [-] In Progress | 11 | 17 |
 | Phase 2: Backend Models | [ ] Pending | 0 | 29 |
 | Phase 3: Auth & RBAC | [ ] Pending | 0 | 11 |
 | Phase 4: Frontend Core | [ ] Pending | 0 | 22 |
@@ -482,4 +482,4 @@
 | Phase 7: Notifications | [ ] Pending | 0 | 21 |
 | Phase 8: Testing | [ ] Pending | 0 | 21 |
 | Phase 9: Polish | [ ] Pending | 0 | 20 |
-| **Total** | | **5** | **209** |
+| **Total** | | **11** | **210** |

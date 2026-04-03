@@ -51,3 +51,55 @@ repo/
 **Phase 1.2 — Docker Setup**: Write `docker-compose.yml`, MySQL init SQL, backend Dockerfile, frontend Dockerfile, and `.env.example`.
 
 ---
+
+### Session 2 — Phase 1.2: Docker Setup
+**Date:** 2026-04-03
+**Phase:** 1.2 Docker Setup
+**Status:** Complete
+
+#### What Was Completed
+- `docker-compose.yml` — 6 services: `db` (MySQL 8), `redis` (Redis 7), `backend` (Gunicorn), `worker` (Celery), `beat` (Celery Beat), `frontend` (Vite dev)
+- `docker/mysql/init.sh` — shell-based init script (not .sql) to get env var substitution; creates primary DB + test DB, grants user privileges on both
+- `backend/Dockerfile` — Python 3.12-slim, installs mysqlclient system deps, copies requirements.txt, runs migrate + gunicorn on CMD
+- `frontend/Dockerfile` — Node 20-alpine multi-stage: `dev` (vite dev server), `build` (npm run build), `production` (nginx static serving)
+- `frontend/nginx.conf` — SPA fallback, static asset cache headers, gzip enabled
+- `docker/.env.example` — all env vars documented: Django, MySQL, Redis, Celery, encryption key, CORS, SMTP/SMS gateway optionals
+- Minimal backend stub (`manage.py`, `config/settings.py`, `config/wsgi.py`, `config/urls.py`, `config/celery.py`) to allow containers to start
+- Minimal frontend stub (`package.json`, `vite.config.ts`, `tsconfig*.json`, `index.html`, `src/main.tsx`) to allow Vite container to start
+- `backend/requirements.txt` — pinned versions for all Phase 2+ dependencies (Django 5.1.4, DRF, Celery, etc.)
+- All 6 containers verified running; `GET /api/health/` returns `{"status": "ok"}`
+
+#### Decisions Made
+- **init.sh vs init.sql**: Used `.sh` instead of `.sql` for the MySQL init script so environment variables (`$MYSQL_DATABASE`, `$MYSQL_USER`) are substituted at runtime. The test database name is `{DB_NAME}_test`.
+- **Added `beat` service**: PLAN.md listed `worker` but Celery Beat (scheduled tasks) is a separate process required for digest notifications, safety stock checks, audit purges, canary monitoring etc. Added `beat` as a 6th service.
+- **Host port offsets**: MySQL mapped to `3307` and Redis to `6380` on the host to avoid conflicts with other running Docker containers on this machine. Internal container ports remain standard (`3306`, `6379`).
+- **Multi-stage frontend Dockerfile**: `dev` stage uses `vite dev --host 0.0.0.0`; `production` stage uses nginx (for Phase 9.5). docker-compose uses `target: dev` for local development.
+- **Minimal stubs**: Created minimal `config/celery.py` stub and added `django_celery_beat`/`django_celery_results` to `INSTALLED_APPS` so beat/worker containers start without errors in this phase.
+
+#### Files Changed
+| File | Action |
+|---|---|
+| `docker-compose.yml` | Created |
+| `docker/mysql/init.sh` | Created |
+| `docker/.env.example` | Created |
+| `backend/Dockerfile` | Created |
+| `backend/requirements.txt` | Created (stub, expanded in Phase 1.4) |
+| `backend/manage.py` | Created (stub) |
+| `backend/config/__init__.py` | Created |
+| `backend/config/settings.py` | Created (stub, expanded in Phase 1.4) |
+| `backend/config/wsgi.py` | Created |
+| `backend/config/urls.py` | Created (health endpoint) |
+| `backend/config/celery.py` | Created (stub) |
+| `frontend/Dockerfile` | Created |
+| `frontend/nginx.conf` | Created |
+| `frontend/package.json` | Created (stub, expanded in Phase 1.5) |
+| `frontend/vite.config.ts` | Created |
+| `frontend/tsconfig*.json` | Created |
+| `frontend/index.html` | Created (no CDN links) |
+| `frontend/src/main.tsx` | Created (stub) |
+| `PLAN.md` | Updated (1.2 tasks marked complete) |
+
+#### Next Phase
+**Phase 1.3 — run_test.sh**: Script to start all services, wait for DB readiness, print service URLs.
+
+---

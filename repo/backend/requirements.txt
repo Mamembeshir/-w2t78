@@ -1,0 +1,27 @@
+# Core framework
+Django==5.1.4
+djangorestframework==3.15.2
+gunicorn==23.0.0
+
+# Database
+mysqlclient==2.2.6
+
+# Authentication
+djangorestframework-simplejwt==5.3.1
+argon2-cffi==23.1.0
+
+# Encryption at rest
+django-encrypted-model-fields==0.6.5
+cryptography==43.0.3
+
+# Task queue
+celery==5.4.0
+redis==5.2.1
+django-celery-beat==2.7.0
+django-celery-results==2.5.1
+
+# CORS
+django-cors-headers==4.6.0
+
+# Utilities
+python-decouple==3.8
