@@ -716,3 +716,75 @@ class InventoryRBACTests(TestCase):
         u = U.objects.get(username="trysuper")
         self.assertFalse(u.is_superuser)
         self.assertFalse(u.is_staff)
+
+    # ── Issue stock ────────────────────────────────────────────────────────────
+
+    def test_analyst_cannot_issue_stock(self):
+        """PROCUREMENT_ANALYST must not post issues (403)."""
+        # First put some stock in so the check isn't confused by missing stock
+        self._auth(self.manager)
+        self.client.post("/api/inventory/receive/", {
+            "item_id": self.item.pk, "warehouse_id": self.wh.pk,
+            "quantity": "50.0000", "unit_cost": "1.00",
+        })
+        self._auth(self.analyst)
+        resp = self.client.post("/api/inventory/issue/", {
+            "item_id": self.item.pk, "warehouse_id": self.wh.pk,
+            "quantity": "1.0000",
+        })
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_unauthenticated_cannot_issue_stock(self):
+        """Unauthenticated requests to /api/inventory/issue/ must receive 401."""
+        self.client.force_authenticate(user=None)
+        resp = self.client.post("/api/inventory/issue/", {
+            "item_id": self.item.pk, "warehouse_id": self.wh.pk,
+            "quantity": "1.0000",
+        })
+        self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    # ── Transfer stock ─────────────────────────────────────────────────────────
+
+    def test_analyst_cannot_transfer_stock(self):
+        """PROCUREMENT_ANALYST must not post transfers (403)."""
+        wh2 = make_warehouse("RBAC_WH2")
+        self._auth(self.analyst)
+        resp = self.client.post("/api/inventory/transfer/", {
+            "item_id": self.item.pk,
+            "from_warehouse_id": self.wh.pk,
+            "to_warehouse_id": wh2.pk,
+            "quantity": "1.0000",
+        })
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_unauthenticated_cannot_transfer_stock(self):
+        """Unauthenticated requests to /api/inventory/transfer/ must receive 401."""
+        wh2 = make_warehouse("RBAC_WH3")
+        self.client.force_authenticate(user=None)
+        resp = self.client.post("/api/inventory/transfer/", {
+            "item_id": self.item.pk,
+            "from_warehouse_id": self.wh.pk,
+            "to_warehouse_id": wh2.pk,
+            "quantity": "1.0000",
+        })
+        self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    # ── Stock balances (IsAuthenticated — intentionally broad for single-org) ───
+
+    def test_unauthenticated_cannot_view_balances(self):
+        """Unauthenticated requests to /api/inventory/balances/ must receive 401."""
+        self.client.force_authenticate(user=None)
+        resp = self.client.get("/api/inventory/balances/")
+        self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_analyst_can_view_balances(self):
+        """PROCUREMENT_ANALYST may read stock balances — IsAuthenticated is intentional."""
+        self._auth(self.analyst)
+        resp = self.client.get("/api/inventory/balances/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+    def test_manager_can_view_balances(self):
+        """INVENTORY_MANAGER may read stock balances."""
+        self._auth(self.manager)
+        resp = self.client.get("/api/inventory/balances/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)

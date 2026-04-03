@@ -651,3 +651,102 @@ class CanaryRoutingTests(TestCase):
         task = self._make_task()
         picked = _pick_rule_version(task)
         self.assertEqual(picked.pk, self.rv_active.pk)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Crawling RBAC — role gate and unauthenticated 401 matrix
+# ─────────────────────────────────────────────────────────────────────────────
+
+class CrawlingRBACTests(TestCase):
+    """
+    Verify role gates on all crawling endpoints.
+
+    Unauthenticated → 401.  Wrong role → 403.  Correct role → 2xx.
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+        self.analyst = create_user("crawl_rbac_analyst", Role.PROCUREMENT_ANALYST)
+        self.manager = create_user("crawl_rbac_manager", Role.INVENTORY_MANAGER)
+        self.admin = create_user("crawl_rbac_admin", Role.ADMIN)
+        self.source = make_source("RBAC_SRC")
+        self.rule_version = make_rule_version(self.source, is_active=True)
+
+    def _auth(self, user):
+        self.client.force_authenticate(user=user)
+
+    # ── Sources — list ─────────────────────────────────────────────────────────
+
+    def test_unauthenticated_cannot_list_sources(self):
+        """Unauthenticated requests to /api/crawl/sources/ must receive 401."""
+        self.client.force_authenticate(user=None)
+        resp = self.client.get("/api/crawl/sources/")
+        self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_manager_can_list_sources(self):
+        """Any authenticated user may list sources (IsAuthenticated on list)."""
+        self._auth(self.manager)
+        resp = self.client.get("/api/crawl/sources/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+    # ── Sources — create (ProcurementAnalyst / Admin only) ─────────────────────
+
+    def test_manager_cannot_create_source(self):
+        """INVENTORY_MANAGER must not create crawl sources (403)."""
+        self._auth(self.manager)
+        resp = self.client.post("/api/crawl/sources/", {
+            "name": "Blocked", "base_url": "http://block.local",
+            "rate_limit_rpm": 30, "crawl_delay_seconds": 1,
+            "user_agents": ["UA/1"],
+        }, format="json")
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    # ── Rule versions — create (ProcurementAnalyst / Admin only) ───────────────
+
+    def test_manager_cannot_create_rule_version(self):
+        """INVENTORY_MANAGER must not create rule versions (403)."""
+        self._auth(self.manager)
+        resp = self.client.post(
+            f"/api/crawl/sources/{self.source.pk}/rule-versions/",
+            {"version_note": "blocked", "url_pattern": "http://x.local"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_unauthenticated_cannot_create_rule_version(self):
+        """Unauthenticated requests to rule-versions must receive 401."""
+        self.client.force_authenticate(user=None)
+        resp = self.client.post(
+            f"/api/crawl/sources/{self.source.pk}/rule-versions/",
+            {"version_note": "anon", "url_pattern": "http://x.local"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    # ── Tasks — list / enqueue ─────────────────────────────────────────────────
+
+    def test_unauthenticated_cannot_list_tasks(self):
+        """Unauthenticated requests to /api/crawl/tasks/ must receive 401."""
+        self.client.force_authenticate(user=None)
+        resp = self.client.get("/api/crawl/tasks/")
+        self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_manager_cannot_enqueue_task(self):
+        """INVENTORY_MANAGER must not enqueue crawl tasks (403)."""
+        self._auth(self.manager)
+        resp = self.client.post("/api/crawl/tasks/", {
+            "source_id": self.source.pk,
+            "url": "http://target.local/page",
+            "parameters": {},
+        }, format="json")
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_analyst_can_enqueue_task(self):
+        """PROCUREMENT_ANALYST may enqueue a task (201 or 200 if deduplicated)."""
+        self._auth(self.analyst)
+        resp = self.client.post("/api/crawl/tasks/", {
+            "source_id": self.source.pk,
+            "url": "http://target.local/rbac-page",
+            "parameters": {},
+        }, format="json")
+        self.assertIn(resp.status_code, (status.HTTP_201_CREATED, status.HTTP_200_OK))
