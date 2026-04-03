@@ -39,7 +39,7 @@ export function AppShell() {
   }, [sidebarWidth])
 
   return (
-    <div className="min-h-screen bg-surface-900">
+    <div className="min-h-screen bg-surface-950">
       <Sidebar expanded={expanded} onToggle={toggle} />
 
       {/* Main area: offset by sidebar, padded by topbar */}
@@ -50,7 +50,7 @@ export function AppShell() {
         <TopBar sidebarWidth={sidebarWidth} />
 
         {isOffline && (
-          <div className="bg-danger-900 border-b border-danger-700 px-4 py-2 text-sm text-danger-200 text-center">
+          <div className="bg-danger-950/80 border-b border-danger-700/60 px-4 py-2 text-sm text-danger-300 text-center">
             Network unreachable — operating offline. Changes may not be saved until connectivity is restored.
           </div>
         )}

@@ -10,7 +10,11 @@ const paddings = { none: '', sm: 'p-4', md: 'p-5', lg: 'p-6' }
 
 export function Card({ children, className = '', padding = 'md' }: CardProps) {
   return (
-    <div className={`bg-surface-800 border border-surface-700 rounded-xl shadow-card ${paddings[padding]} ${className}`}>
+    <div className={`
+      bg-surface-800 border border-surface-600/60
+      rounded-2xl shadow-card shadow-inner-top
+      ${paddings[padding]} ${className}
+    `}>
       {children}
     </div>
   )
@@ -26,20 +30,20 @@ interface StatCardProps {
 }
 
 const accents = {
-  primary: 'text-primary-400 bg-primary-500/10',
-  success: 'text-success-400 bg-success-500/10',
-  warning: 'text-warning-400 bg-warning-500/10',
-  danger:  'text-danger-400 bg-danger-500/10',
-  info:    'text-info-400 bg-info-500/10',
+  primary: 'text-primary-400 bg-primary-500/10 ring-1 ring-primary-500/20',
+  success: 'text-success-400 bg-success-500/10 ring-1 ring-success-500/20',
+  warning: 'text-warning-400 bg-warning-500/10 ring-1 ring-warning-500/20',
+  danger:  'text-danger-400  bg-danger-500/10  ring-1 ring-danger-500/20',
+  info:    'text-info-400    bg-info-500/10    ring-1 ring-info-500/20',
 }
 
 export function StatCard({ label, value, sublabel, icon, accent = 'primary', className = '' }: StatCardProps) {
   return (
-    <Card className={className}>
+    <Card className={`hover:border-primary-500/20 transition-colors duration-200 ${className}`}>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-text-muted text-xs font-medium uppercase tracking-wider truncate">{label}</p>
-          <p className="mt-1 text-2xl font-bold text-text-primary tabular-nums">{value}</p>
+          <p className="text-text-muted text-xs font-semibold uppercase tracking-wider truncate">{label}</p>
+          <p className="mt-1.5 text-2xl font-bold text-text-primary tabular-nums">{value}</p>
           {sublabel && <p className="mt-1 text-text-muted text-xs">{sublabel}</p>}
         </div>
         {icon && (

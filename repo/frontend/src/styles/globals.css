@@ -1,151 +1,212 @@
-/* Tailwind directives */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ── Base layer — dark-first defaults ───────────────────────────────────── */
-@layer base {
-  /* Force dark mode on root — this app is always dark */
-  :root {
-    color-scheme: dark;
-  }
+/* ─────────────────────────────────────────────────────────────────────────────
+   CSS Custom Properties — Theme Variables
+   All Tailwind color tokens resolve to these variables.
+   Dark theme: :root (default — no class needed)
+   Light theme: html.light
+   ───────────────────────────────────────────────────────────────────────────── */
 
+:root {
+  /* ── Dark theme (default) ─────────────────────────────────────────────── */
+  color-scheme: dark;
+
+  /* Surfaces — deep graphite with a whisper of violet warmth */
+  --surface-950: 8 8 12;          /* #08080C — absolute page bg */
+  --surface-900: 13 13 18;        /* #0D0D12 — page bg */
+  --surface-800: 20 20 28;        /* #14141C — card bg */
+  --surface-700: 30 30 42;        /* #1E1E2A — hover / secondary card */
+  --surface-600: 46 46 64;        /* #2E2E40 — borders */
+  --surface-500: 70 70 96;        /* #464660 — muted / disabled icons */
+
+  /* Primary — Amber / Warm Gold */
+  --primary-50:  255 251 235;
+  --primary-100: 254 243 199;
+  --primary-200: 253 230 138;
+  --primary-300: 252 211 77;
+  --primary-400: 251 191 36;      /* #FBBF24 — on dark: soft glow */
+  --primary-500: 245 158 11;      /* #F59E0B — default action */
+  --primary-600: 217 119 6;       /* #D97706 — hover */
+  --primary-700: 180 83  9;       /* #B45309 */
+  --primary-800: 146 64  14;      /* #92400E */
+  --primary-900: 120 53  15;      /* #78350F */
+
+  /* Text hierarchy */
+  --text-primary:   244 244 245;  /* #F4F4F5 */
+  --text-secondary: 161 161 170;  /* #A1A1AA */
+  --text-muted:     113 113 122;  /* #71717A */
+  --text-disabled:  82  82  91;   /* #52525B */
+}
+
+html.light {
+  /* ── Light theme ──────────────────────────────────────────────────────── */
+  color-scheme: light;
+
+  /* Surfaces — warm stone / ivory */
+  --surface-950: 250 250 249;     /* #FAFAF9 — page bg (warm off-white) */
+  --surface-900: 245 245 244;     /* #F5F5F4 */
+  --surface-800: 255 255 255;     /* #FFFFFF — card bg */
+  --surface-700: 231 229 228;     /* #E7E5E4 — hover surface */
+  --surface-600: 214 211 209;     /* #D6D3D1 — borders */
+  --surface-500: 168 162 158;     /* #A8A29E — muted */
+
+  /* Primary — richer amber for light backgrounds */
+  --primary-50:  255 251 235;
+  --primary-100: 254 243 199;
+  --primary-200: 253 230 138;
+  --primary-300: 252 211 77;
+  --primary-400: 217 119 6;       /* #D97706 — softer glow on light */
+  --primary-500: 180 83  9;       /* #B45309 — default action on light */
+  --primary-600: 146 64  14;      /* #92400E — hover */
+  --primary-700: 120 53  15;      /* #78350F */
+  --primary-800: 92  33  0;
+  --primary-900: 67  20  7;
+
+  /* Text hierarchy */
+  --text-primary:   28  25  23;   /* #1C1917 — warm near-black */
+  --text-secondary: 87  83  78;   /* #57534E */
+  --text-muted:     120 113 108;  /* #78716C */
+  --text-disabled:  168 162 158;  /* #A8A29E */
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Base Layer
+   ───────────────────────────────────────────────────────────────────────────── */
+@layer base {
   html {
-    @apply bg-surface-900 text-text-primary;
-    /* Smooth scrolling for list navigation */
+    @apply bg-surface-950 text-text-primary;
     scroll-behavior: smooth;
-    /* Prevent iOS text-size adjust on rotation */
     -webkit-text-size-adjust: 100%;
   }
 
   body {
-    @apply bg-surface-900 text-text-primary font-sans antialiased;
-    /* Prevent horizontal scroll on mobile/kiosk */
+    @apply bg-surface-950 text-text-primary font-sans antialiased;
     overflow-x: hidden;
   }
 
-  /* Focus ring — keyboard navigation accessible */
+  /* Focus ring */
   *:focus-visible {
-    @apply outline-none ring-2 ring-primary-500 ring-offset-2 ring-offset-surface-900;
+    @apply outline-none ring-2 ring-primary-500 ring-offset-2 ring-offset-surface-950;
   }
 
-  /* Scrollbar — dark, slim */
+  /* Scrollbar */
   * {
     scrollbar-width: thin;
-    scrollbar-color: theme('colors.surface.600') theme('colors.surface.800');
+    scrollbar-color: rgb(var(--surface-600)) rgb(var(--surface-800));
   }
-  *::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  *::-webkit-scrollbar-track {
-    @apply bg-surface-800;
-  }
+  *::-webkit-scrollbar       { width: 5px; height: 5px; }
+  *::-webkit-scrollbar-track { background: rgb(var(--surface-800)); }
   *::-webkit-scrollbar-thumb {
-    @apply bg-surface-600 rounded-full;
+    background: rgb(var(--surface-600));
+    border-radius: 9999px;
   }
-  *::-webkit-scrollbar-thumb:hover {
-    @apply bg-surface-500;
-  }
+  *::-webkit-scrollbar-thumb:hover { background: rgb(var(--surface-500)); }
 
-  /* Typography defaults */
+  /* Typography */
   h1, h2, h3, h4, h5, h6 {
     @apply font-semibold text-text-primary leading-tight;
   }
-
   h1 { @apply text-3xl; }
   h2 { @apply text-2xl; }
   h3 { @apply text-xl; }
   h4 { @apply text-lg; }
 
-  p {
-    @apply text-text-secondary leading-relaxed;
-  }
+  p { @apply text-text-secondary leading-relaxed; }
 
-  /* Links */
   a {
     @apply text-primary-400 hover:text-primary-300 transition-colors duration-150;
   }
 
-  /* Form inputs — base dark style */
+  /* Form inputs */
   input, textarea, select {
-    @apply bg-surface-700 border border-surface-600 text-text-primary
-           rounded-lg px-3 py-2.5
-           placeholder:text-text-muted
-           focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
+    @apply bg-surface-800 border border-surface-600 text-text-primary
+           rounded-xl px-3 py-2.5
+           placeholder:text-text-disabled
+           focus:outline-none focus:ring-2 focus:ring-primary-500/40 focus:border-primary-500/60
            transition-colors duration-150;
-    /* Minimum touch target */
     min-height: 2.75rem;
   }
 
-  /* Remove autofill background colour */
+  /* Remove autofill tint */
   input:-webkit-autofill,
   input:-webkit-autofill:hover,
   input:-webkit-autofill:focus {
-    -webkit-box-shadow: 0 0 0 1000px theme('colors.surface.700') inset;
-    -webkit-text-fill-color: theme('colors.text.primary');
-    caret-color: theme('colors.text.primary');
+    -webkit-box-shadow: 0 0 0 1000px rgb(var(--surface-800)) inset;
+    -webkit-text-fill-color: rgb(var(--text-primary));
+    caret-color: rgb(var(--text-primary));
   }
 
   /* Tables */
-  table {
-    @apply w-full border-collapse;
-  }
+  table { @apply w-full border-collapse; }
   th {
     @apply text-left text-xs font-semibold uppercase tracking-wider
-           text-text-muted px-4 py-3 border-b border-surface-600;
+           text-text-muted px-4 py-3 border-b border-surface-600/60;
   }
   td {
-    @apply px-4 py-3 text-sm text-text-secondary border-b border-surface-700;
+    @apply px-4 py-3 text-sm text-text-secondary border-b border-surface-700/50;
   }
   tr:hover td {
-    @apply bg-surface-700 text-text-primary;
+    @apply bg-primary-500/5 text-text-primary;
+    transition: background 0.1s ease;
   }
-  tr:last-child td {
-    @apply border-b-0;
-  }
+  tr:last-child td { @apply border-b-0; }
 }
 
-/* ── Component layer ─────────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────────────────────
+   Component Layer
+   ───────────────────────────────────────────────────────────────────────────── */
 @layer components {
-  /* Card */
+  /* Card — subtle inner top highlight gives depth without heavy shadows */
   .card {
-    @apply bg-surface-800 rounded-xl border border-surface-600 shadow-card p-6;
+    @apply bg-surface-800 rounded-2xl border border-surface-600/60 shadow-card shadow-inner-top p-6;
   }
   .card-sm {
-    @apply bg-surface-800 rounded-xl border border-surface-600 shadow-card p-4;
+    @apply bg-surface-800 rounded-xl border border-surface-600/60 shadow-card shadow-inner-top p-4;
+  }
+
+  /* Premium card — amber-tinted border on hover */
+  .card-interactive {
+    @apply card transition-all duration-200
+           hover:border-primary-500/30 hover:shadow-card-md hover:shadow-glow-accent;
   }
 
   /* Divider */
-  .divider {
-    @apply border-t border-surface-600 my-4;
-  }
+  .divider { @apply border-t border-surface-600/50 my-4; }
 
   /* Badge base */
-  .badge {
-    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium;
-  }
-  .badge-success { @apply badge bg-success-500/15 text-success-400; }
-  .badge-warning { @apply badge bg-warning-500/15 text-warning-400; }
-  .badge-danger  { @apply badge bg-danger-500/15 text-danger-400; }
-  .badge-info    { @apply badge bg-info-500/15 text-info-400; }
-  .badge-neutral { @apply badge bg-surface-600 text-text-secondary; }
+  .badge { @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-medium; }
+  .badge-success { @apply badge bg-success-500/12 text-success-400 ring-1 ring-success-500/25; }
+  .badge-warning { @apply badge bg-warning-500/12 text-warning-400 ring-1 ring-warning-500/25; }
+  .badge-danger  { @apply badge bg-danger-500/12  text-danger-400  ring-1 ring-danger-500/25; }
+  .badge-info    { @apply badge bg-info-500/12    text-info-400    ring-1 ring-info-500/25; }
+  .badge-neutral { @apply badge bg-surface-700    text-text-secondary ring-1 ring-surface-600/60; }
 
   /* Section heading */
   .section-title {
     @apply text-xs font-semibold uppercase tracking-widest text-text-muted mb-3;
   }
+
+  /* Amber accent line — left-border nav active indicator */
+  .nav-active-bar {
+    @apply relative;
+  }
+  .nav-active-bar::before {
+    content: '';
+    @apply absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-full bg-primary-500;
+  }
 }
 
-/* ── Utility layer ───────────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────────────────────
+   Utility Layer
+   ───────────────────────────────────────────────────────────────────────────── */
 @layer utilities {
-  /* Touch-friendly minimum size helper */
   .min-touch {
     min-height: 2.75rem;
-    min-width: 2.75rem;
+    min-width:  2.75rem;
   }
 
-  /* Truncate with ellipsis */
   .truncate-2 {
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -153,8 +214,27 @@
     overflow: hidden;
   }
 
-  /* Subtle glass effect for modals/dropdowns */
+  /* Glass effect for modals / overlays */
   .glass {
-    @apply bg-surface-800/90 backdrop-blur-sm;
+    background: rgb(var(--surface-800) / 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  /* Amber gradient text — for brand headings */
+  .text-gradient-amber {
+    background: linear-gradient(135deg, rgb(var(--primary-400)), rgb(var(--primary-600)));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Subtle amber shimmer on brand logo */
+  .bg-gradient-amber {
+    background: linear-gradient(
+      135deg,
+      rgb(var(--primary-500) / 0.25) 0%,
+      rgb(var(--primary-400) / 0.10) 100%
+    );
   }
 }

@@ -1,82 +1,83 @@
 import type { Config } from 'tailwindcss'
 
+// All semantic colors are driven by CSS custom properties so that the dark/light
+// theme switch is handled entirely in globals.css — no component changes needed.
+// The `rgb(var(--x) / <alpha-value>)` pattern supports Tailwind's opacity modifier
+// syntax (e.g. bg-primary-500/20, text-surface-900/80).
+
 const config: Config = {
-  // Scan all source files for class names
   content: [
     './index.html',
     './src/**/*.{ts,tsx}',
   ],
 
-  // Enable class-based dark mode (controlled by <html class="dark">)
+  // Class-based theming: html has no extra class → dark (default)
+  //                       html.light → light theme
   darkMode: 'class',
 
   theme: {
     extend: {
-      // ── Colour palette — dark enterprise ─────────────────────────────────
+      // ── Colour palette — CSS-variable driven ─────────────────────────────
       colors: {
         // Page / panel backgrounds
         surface: {
-          900: '#0b1120', // deepest background (page bg)
-          800: '#0f172a', // primary card / sidebar
-          700: '#1e293b', // secondary card / hover surface
-          600: '#334155', // borders, dividers
-          500: '#475569', // muted icon, disabled
+          950: 'rgb(var(--surface-950) / <alpha-value>)',
+          900: 'rgb(var(--surface-900) / <alpha-value>)',
+          800: 'rgb(var(--surface-800) / <alpha-value>)',
+          700: 'rgb(var(--surface-700) / <alpha-value>)',
+          600: 'rgb(var(--surface-600) / <alpha-value>)',
+          500: 'rgb(var(--surface-500) / <alpha-value>)',
         },
 
-        // Primary accent — indigo
+        // Primary accent — Amber / Warm Gold
+        // Rare in enterprise tools; premium financial-terminal feel.
         primary: {
-          50:  '#eef2ff',
-          100: '#e0e7ff',
-          200: '#c7d2fe',
-          300: '#a5b4fc',
-          400: '#818cf8',
-          500: '#6366f1', // default action
-          600: '#4f46e5', // hover
-          700: '#4338ca', // pressed
-          800: '#3730a3',
-          900: '#312e81',
+          50:  'rgb(var(--primary-50)  / <alpha-value>)',
+          100: 'rgb(var(--primary-100) / <alpha-value>)',
+          200: 'rgb(var(--primary-200) / <alpha-value>)',
+          300: 'rgb(var(--primary-300) / <alpha-value>)',
+          400: 'rgb(var(--primary-400) / <alpha-value>)',
+          500: 'rgb(var(--primary-500) / <alpha-value>)',
+          600: 'rgb(var(--primary-600) / <alpha-value>)',
+          700: 'rgb(var(--primary-700) / <alpha-value>)',
+          800: 'rgb(var(--primary-800) / <alpha-value>)',
+          900: 'rgb(var(--primary-900) / <alpha-value>)',
         },
 
-        // Secondary accent — cyan (data / info)
-        accent: {
-          50:  '#ecfeff',
-          100: '#cffafe',
-          200: '#a5f3fc',
-          300: '#67e8f9',
-          400: '#22d3ee',
-          500: '#06b6d4', // default
-          600: '#0891b2', // hover
-          700: '#0e7490',
-        },
-
-        // Status colours
+        // Status colours — semantic, consistent across themes
         success: {
-          400: '#4ade80',
-          500: '#22c55e',
-          600: '#16a34a',
+          400: 'rgb(74 222 128 / <alpha-value>)',
+          500: 'rgb(34 197 94  / <alpha-value>)',
+          600: 'rgb(22 163 74  / <alpha-value>)',
+          900: 'rgb(20 83  45  / <alpha-value>)',
+          950: 'rgb(5  46  22  / <alpha-value>)',
         },
         warning: {
-          400: '#fb923c',
-          500: '#f97316',
-          600: '#ea580c',
+          400: 'rgb(251 191 36  / <alpha-value>)',
+          500: 'rgb(245 158 11  / <alpha-value>)',
+          600: 'rgb(217 119 6   / <alpha-value>)',
         },
         danger: {
-          400: '#f87171',
-          500: '#ef4444',
-          600: '#dc2626',
+          300: 'rgb(252 165 165 / <alpha-value>)',
+          400: 'rgb(248 113 113 / <alpha-value>)',
+          500: 'rgb(239 68  68  / <alpha-value>)',
+          600: 'rgb(220 38  38  / <alpha-value>)',
+          700: 'rgb(185 28  28  / <alpha-value>)',
+          900: 'rgb(127 29  29  / <alpha-value>)',
+          950: 'rgb(69  10  10  / <alpha-value>)',
         },
         info: {
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
+          400: 'rgb(96  165 250 / <alpha-value>)',
+          500: 'rgb(59  130 246 / <alpha-value>)',
+          600: 'rgb(37  99  235 / <alpha-value>)',
         },
 
-        // Text hierarchy
+        // Text hierarchy — CSS-variable driven
         text: {
-          primary:   '#f1f5f9', // slate-100
-          secondary: '#94a3b8', // slate-400
-          muted:     '#64748b', // slate-500
-          disabled:  '#475569', // slate-600
+          primary:   'rgb(var(--text-primary)   / <alpha-value>)',
+          secondary: 'rgb(var(--text-secondary) / <alpha-value>)',
+          muted:     'rgb(var(--text-muted)     / <alpha-value>)',
+          disabled:  'rgb(var(--text-disabled)  / <alpha-value>)',
         },
       },
 
@@ -104,7 +105,7 @@ const config: Config = {
         '2xs': ['0.625rem', { lineHeight: '0.875rem' }],
       },
 
-      // ── Spacing — generous padding for warehouse / kiosk use ─────────────
+      // ── Spacing ───────────────────────────────────────────────────────────
       spacing: {
         '4.5': '1.125rem',
         '13':  '3.25rem',
@@ -112,29 +113,33 @@ const config: Config = {
         '18':  '4.5rem',
       },
 
-      // ── Minimum tap-target size (CLAUDE.md: min 44px) ────────────────────
+      // ── Minimum tap-target size ────────────────────────────────────────────
       minHeight: {
-        'touch': '2.75rem',  // 44px
-        'touch-lg': '3.25rem', // 52px — primary action buttons
+        'touch':    '2.75rem',
+        'touch-lg': '3.25rem',
       },
       minWidth: {
         'touch': '2.75rem',
       },
 
-      // ── Shadows — subtle, enterprise-grade ───────────────────────────────
+      // ── Shadows ───────────────────────────────────────────────────────────
       boxShadow: {
-        'card':  '0 1px 3px 0 rgba(0,0,0,0.4), 0 1px 2px -1px rgba(0,0,0,0.4)',
-        'card-md': '0 4px 6px -1px rgba(0,0,0,0.5), 0 2px 4px -2px rgba(0,0,0,0.5)',
-        'card-lg': '0 10px 15px -3px rgba(0,0,0,0.6), 0 4px 6px -4px rgba(0,0,0,0.6)',
-        'glow-primary': '0 0 0 3px rgba(99,102,241,0.35)',
-        'glow-accent':  '0 0 0 3px rgba(6,182,212,0.35)',
-        'glow-danger':  '0 0 0 3px rgba(239,68,68,0.35)',
+        'card':         '0 1px 3px 0 rgba(0,0,0,0.25), 0 1px 2px -1px rgba(0,0,0,0.25)',
+        'card-md':      '0 4px 6px -1px rgba(0,0,0,0.3), 0 2px 4px -2px rgba(0,0,0,0.3)',
+        'card-lg':      '0 10px 15px -3px rgba(0,0,0,0.35), 0 4px 6px -4px rgba(0,0,0,0.35)',
+        // Amber glow — primary focus ring / hover highlight
+        'glow-primary': '0 0 0 3px rgba(245,158,11,0.28)',
+        'glow-accent':  '0 0 0 3px rgba(245,158,11,0.18)',
+        'glow-danger':  '0 0 0 3px rgba(239,68,68,0.28)',
+        // Inner bottom border line — premium card edge highlight
+        'inner-top':    'inset 0 1px 0 0 rgba(255,255,255,0.06)',
       },
 
       // ── Border radius ─────────────────────────────────────────────────────
       borderRadius: {
         'xl':  '0.75rem',
         '2xl': '1rem',
+        '3xl': '1.25rem',
       },
 
       // ── Transitions ───────────────────────────────────────────────────────
@@ -150,6 +155,22 @@ const config: Config = {
         'modal':    '60',
         'toast':    '70',
         'tooltip':  '80',
+      },
+
+      // ── Keyframes for micro-animations ───────────────────────────────────
+      keyframes: {
+        'fade-in': {
+          '0%':   { opacity: '0', transform: 'translateY(-4px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'amber-pulse': {
+          '0%, 100%': { boxShadow: '0 0 0 0 rgba(245,158,11,0)' },
+          '50%':      { boxShadow: '0 0 0 6px rgba(245,158,11,0.12)' },
+        },
+      },
+      animation: {
+        'fade-in':     'fade-in 0.15s ease-out',
+        'amber-pulse': 'amber-pulse 2s ease-in-out infinite',
       },
     },
   },
