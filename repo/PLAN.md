@@ -480,6 +480,17 @@
 - [x] Add healthcheck endpoint: `GET /api/health/` → `{ status: "ok", db: "ok", redis: "ok" }`
 - [x] Document deployment steps in `scripts/deploy.md`
 
+### 9.7 Audit Round 2 Fixes
+- [x] Security: mask sensitive data in `CrawlTask.last_error` before DB storage
+- [x] Completeness: implement `/admin/users` — UserManagementPage (create, edit role/active, reset password)
+- [x] Completeness: implement `/admin/audit` — AuditLogPage with model/action/date filters
+- [x] Testing: add 7 tests for `send_outbound_queued()` task retry logic
+- [x] Validation: add `max_value` bounds to all quantity/unit_cost serializer fields
+- [x] Security: validate `CrawlSource.base_url` must be http(s) scheme
+- [x] Security: validate `CrawlSource.user_agents` must be list of non-empty strings
+- [x] Architecture: duplicate Item SKU returns 409 instead of 500 `IntegrityError`
+- [x] Architecture: prevent `costing_method` change after ledger entries exist
+
 ### 9.6 Final Validation Checklist
 - [ ] Disconnect test machine from internet; confirm all features work on local network only
 - [ ] Verify `run_test.sh` starts all services from cold state in under 60 seconds
