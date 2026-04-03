@@ -43,11 +43,16 @@
 - [x] Verify `python manage.py migrate` runs cleanly — all migrations [X] including token_blacklist, celery_beat, celery_results
 
 ### 1.5 Frontend Bootstrap
-- [ ] Initialize Vite + React 19 + TypeScript project inside `frontend/`
-- [ ] Install TailwindCSS and configure `tailwind.config.ts` with dark theme defaults
-- [ ] Install dependencies: `react-router-dom`, `axios`, `@tanstack/react-query`
-- [ ] Create base `index.html` with no external CDN links (fully offline)
-- [ ] Verify `vite dev` runs and serves on local network
+- [x] Initialize Vite + React 19 + TypeScript project inside `frontend/`
+- [x] Install TailwindCSS and configure `tailwind.config.ts` with dark enterprise theme (surface/primary/accent/status palettes, touch sizing, shadows)
+- [x] Install dependencies: `react-router-dom`, `axios`, `@tanstack/react-query`, `@types/node` (pinned in package.json)
+- [x] Configure `postcss.config.js` for Tailwind processing
+- [x] Create `src/styles/globals.css`: @tailwind directives + base/component/utility layers (scrollbars, tables, cards, badges, inputs)
+- [x] Create `src/lib/api.ts`: Axios instance with JWT interceptor, 401 refresh flow, offline error messaging
+- [x] Create `src/lib/queryClient.ts`: React Query client tuned for local-network (30s stale, no 4xx retry, no focus refetch)
+- [x] Update `vite.config.ts`: `@/` path alias, split vendor chunks, strictPort, Docker-compatible proxy
+- [x] Create base `index.html` with no external CDN links (verified CLEAN)
+- [x] Verify `vite dev` runs and serves on local network — Vite v6.4.1 ready in 123ms, HTTP 200, Tailwind CSS fully compiled with custom tokens
 
 ---
 
@@ -476,7 +481,7 @@
 
 | Phase | Status | Tasks Done | Tasks Total |
 |---|---|---|---|
-| Phase 1: Setup + Docker | [-] In Progress | 24 | 25 |
+| Phase 1: Setup + Docker | [x] Complete | 34 | 34 |
 | Phase 2: Backend Models | [ ] Pending | 0 | 29 |
 | Phase 3: Auth & RBAC | [ ] Pending | 0 | 11 |
 | Phase 4: Frontend Core | [ ] Pending | 0 | 22 |
@@ -485,4 +490,4 @@
 | Phase 7: Notifications | [ ] Pending | 0 | 21 |
 | Phase 8: Testing | [ ] Pending | 0 | 21 |
 | Phase 9: Polish | [ ] Pending | 0 | 20 |
-| **Total** | | **24** | **218** |
+| **Total** | | **34** | **228** |

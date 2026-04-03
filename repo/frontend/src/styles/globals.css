@@ -1,0 +1,160 @@
+/* Tailwind directives */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Base layer — dark-first defaults ───────────────────────────────────── */
+@layer base {
+  /* Force dark mode on root — this app is always dark */
+  :root {
+    color-scheme: dark;
+  }
+
+  html {
+    @apply bg-surface-900 text-text-primary;
+    /* Smooth scrolling for list navigation */
+    scroll-behavior: smooth;
+    /* Prevent iOS text-size adjust on rotation */
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-surface-900 text-text-primary font-sans antialiased;
+    /* Prevent horizontal scroll on mobile/kiosk */
+    overflow-x: hidden;
+  }
+
+  /* Focus ring — keyboard navigation accessible */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-primary-500 ring-offset-2 ring-offset-surface-900;
+  }
+
+  /* Scrollbar — dark, slim */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.surface.600') theme('colors.surface.800');
+  }
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  *::-webkit-scrollbar-track {
+    @apply bg-surface-800;
+  }
+  *::-webkit-scrollbar-thumb {
+    @apply bg-surface-600 rounded-full;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    @apply bg-surface-500;
+  }
+
+  /* Typography defaults */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold text-text-primary leading-tight;
+  }
+
+  h1 { @apply text-3xl; }
+  h2 { @apply text-2xl; }
+  h3 { @apply text-xl; }
+  h4 { @apply text-lg; }
+
+  p {
+    @apply text-text-secondary leading-relaxed;
+  }
+
+  /* Links */
+  a {
+    @apply text-primary-400 hover:text-primary-300 transition-colors duration-150;
+  }
+
+  /* Form inputs — base dark style */
+  input, textarea, select {
+    @apply bg-surface-700 border border-surface-600 text-text-primary
+           rounded-lg px-3 py-2.5
+           placeholder:text-text-muted
+           focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
+           transition-colors duration-150;
+    /* Minimum touch target */
+    min-height: 2.75rem;
+  }
+
+  /* Remove autofill background colour */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 1000px theme('colors.surface.700') inset;
+    -webkit-text-fill-color: theme('colors.text.primary');
+    caret-color: theme('colors.text.primary');
+  }
+
+  /* Tables */
+  table {
+    @apply w-full border-collapse;
+  }
+  th {
+    @apply text-left text-xs font-semibold uppercase tracking-wider
+           text-text-muted px-4 py-3 border-b border-surface-600;
+  }
+  td {
+    @apply px-4 py-3 text-sm text-text-secondary border-b border-surface-700;
+  }
+  tr:hover td {
+    @apply bg-surface-700 text-text-primary;
+  }
+  tr:last-child td {
+    @apply border-b-0;
+  }
+}
+
+/* ── Component layer ─────────────────────────────────────────────────────── */
+@layer components {
+  /* Card */
+  .card {
+    @apply bg-surface-800 rounded-xl border border-surface-600 shadow-card p-6;
+  }
+  .card-sm {
+    @apply bg-surface-800 rounded-xl border border-surface-600 shadow-card p-4;
+  }
+
+  /* Divider */
+  .divider {
+    @apply border-t border-surface-600 my-4;
+  }
+
+  /* Badge base */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  .badge-success { @apply badge bg-success-500/15 text-success-400; }
+  .badge-warning { @apply badge bg-warning-500/15 text-warning-400; }
+  .badge-danger  { @apply badge bg-danger-500/15 text-danger-400; }
+  .badge-info    { @apply badge bg-info-500/15 text-info-400; }
+  .badge-neutral { @apply badge bg-surface-600 text-text-secondary; }
+
+  /* Section heading */
+  .section-title {
+    @apply text-xs font-semibold uppercase tracking-widest text-text-muted mb-3;
+  }
+}
+
+/* ── Utility layer ───────────────────────────────────────────────────────── */
+@layer utilities {
+  /* Touch-friendly minimum size helper */
+  .min-touch {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
+
+  /* Truncate with ellipsis */
+  .truncate-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Subtle glass effect for modals/dropdowns */
+  .glass {
+    @apply bg-surface-800/90 backdrop-blur-sm;
+  }
+}

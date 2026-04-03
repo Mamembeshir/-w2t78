@@ -182,3 +182,62 @@ repo/
 **Phase 1.5 — Frontend Bootstrap**: Full TailwindCSS dark theme config, React Router, Axios, React Query, verified `vite dev` on local network.
 
 ---
+
+### Session 5 — Phase 1.5: Frontend Bootstrap
+**Date:** 2026-04-03
+**Phase:** 1.5 Frontend Bootstrap
+**Status:** Complete ✓ (Phase 1 fully complete)
+
+#### What Was Completed
+- `tailwind.config.ts` — full dark enterprise design system:
+  - `surface` palette (900→500): page bg, cards, borders, muted
+  - `primary` (indigo) + `accent` (cyan) full 9-shade scales
+  - `success/warning/danger/info` status colours
+  - `text.primary/secondary/muted/disabled` hierarchy
+  - `minHeight.touch = 44px`, `minHeight.touch-lg = 52px` (CLAUDE.md requirement)
+  - Custom shadows (card, card-md, card-lg, glow-primary/accent/danger)
+  - `z-index` layers: sidebar(40), topbar(50), modal(60), toast(70), tooltip(80)
+  - Inter + JetBrains Mono font stacks (system fallbacks — no CDN)
+- `postcss.config.js` — tailwindcss + autoprefixer
+- `src/styles/globals.css` — full base/component/utility layers:
+  - Dark scrollbars, focus rings, typography defaults, table styles
+  - `.card`, `.card-sm`, `.badge-{success/warning/danger/info/neutral}`, `.divider`, `.section-title`, `.glass`
+  - Autofill dark override (`-webkit-box-shadow` trick)
+- `src/lib/api.ts` — Axios instance:
+  - JWT Bearer token on every request (from localStorage)
+  - 401 → token refresh flow with pending-request queue (no duplicate refresh)
+  - Network error → clear "Cannot reach server" offline message
+  - `setTokens()`, `clearTokens()`, `hasToken()` helpers
+- `src/lib/queryClient.ts` — React Query: 30s stale, no 4xx retry, no focus refetch (kiosk-safe)
+- `vite.config.ts` — `@/` alias → `src/`, vendor chunk splitting, strictPort, Docker proxy
+- `package.json` — added `@types/node` for path alias in vite.config
+- `src/main.tsx` — wires CSS + QueryClientProvider, bootstrap placeholder page using real Tailwind classes
+- `index.html` — verified CLEAN (zero external URLs)
+- Verified: Vite v6.4.1 ready in 123ms, HTTP 200, Tailwind compiles all custom tokens correctly
+
+#### Decisions Made
+- **No CDN fonts** — Inter and JetBrains Mono listed in font stacks with system fallbacks. Actual font files will be self-hosted in Phase 4 when the full UI is built.
+- **`minHeight.touch = 44px` enforced at CSS layer** — base `input/textarea/select` get `min-height: 2.75rem` in globals.css, meaning all form elements meet the tap-target requirement automatically.
+- **React Query `refetchOnWindowFocus: false`** — warehouse kiosk screens must not trigger API calls when a barcode scanner focus-events the window.
+- **Pending refresh queue** — the 401 interceptor uses a queue so multiple simultaneous expired-token requests don't cause multiple refresh calls. All pending requests replay once the new token arrives.
+
+#### Files Changed
+| File | Action |
+|---|---|
+| `frontend/tailwind.config.ts` | Created |
+| `frontend/postcss.config.js` | Created |
+| `frontend/src/styles/globals.css` | Created |
+| `frontend/src/lib/api.ts` | Created |
+| `frontend/src/lib/queryClient.ts` | Created |
+| `frontend/src/main.tsx` | Updated |
+| `frontend/vite.config.ts` | Updated |
+| `frontend/package.json` | Updated (added @types/node) |
+| `PLAN.md` | Updated (Phase 1 marked complete) |
+
+#### Phase 1 Complete 🎉
+All 34 tasks across 1.1–1.5 are done. The full stack runs via `./run_test.sh start`.
+
+#### Next Phase
+**Phase 2 — Backend: Django + MySQL + Core Models**: Django apps, abstract base models, all domain models (User/Role, Warehouse/Bin, Item/Lot/Serial, StockLedger/Balance, CrawlSource/RuleVersion/Task, Notifications, AuditLog).
+
+---
