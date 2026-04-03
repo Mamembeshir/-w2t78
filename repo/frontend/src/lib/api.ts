@@ -81,6 +81,7 @@ api.interceptors.response.use(
       } catch (refreshError) {
         drainQueue(null, refreshError)
         clearTokens()
+        _unauthorizedCallback?.()   // notify AuthContext to clear user state
         return Promise.reject(refreshError)
       } finally {
         isRefreshing = false
@@ -103,4 +104,11 @@ export function clearTokens() {
 
 export function hasToken(): boolean {
   return !!localStorage.getItem('access_token')
+}
+
+// ── Unauthorized callback — set by AuthContext ────────────────────────────
+// Called when a token refresh fails so React state can be cleared.
+let _unauthorizedCallback: (() => void) | null = null
+export function setUnauthorizedCallback(fn: () => void) {
+  _unauthorizedCallback = fn
 }

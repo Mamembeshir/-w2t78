@@ -360,3 +360,84 @@ All 27 tasks across 2.1–2.9 done. 36 tables in warehouse_db, health endpoint O
 **Phase 4 — Frontend Core Layout + Premium UI**: AppShell, Sidebar (role-aware), TopBar, premium UI components, React Router with ProtectedRoute, Login page, role-based navigation.
 
 ---
+
+### Session 8 — Phase 4: Frontend Core Layout + Premium UI
+**Date:** 2026-04-03
+**Phase:** 4.1–4.6 Frontend Core Layout + Premium UI
+**Status:** Complete ✓
+
+#### What Was Completed
+- **`frontend/src/types/index.ts`** — shared TypeScript types: `Role`, `User`, `LoginResponse`, `AuthContextType`, `NavItem`, `Toast`, `ToastContextType`, `Column<T>`, `PageInfo`
+- **`frontend/src/contexts/AuthContext.tsx`** — React context providing `user`, `isLoading`, `login()`, `logout()`; restores session from `/api/auth/me/` on mount; wires `setUnauthorizedCallback` so Axios interceptor can trigger logout on failed refresh
+- **`frontend/src/contexts/ToastContext.tsx`** — toast queue with auto-dismiss (default 4s), manual `dismiss(id)`, `add(type, message, duration)`
+- **`frontend/src/hooks/useAuth.ts`** + **`useToast.ts`** — context hooks that throw if used outside their Provider
+- **`frontend/src/lib/api.ts`** — updated: added `setUnauthorizedCallback` + `_unauthorizedCallback` variable; refresh failure now triggers React `setUser(null)` via the callback bridge
+- **`frontend/src/components/ui/icons.tsx`** — 25 inline SVG icon components (no CDN); all `stroke="currentColor"`, 24×24 viewBox; includes all icons needed for nav, toasts, and pages
+- **`frontend/src/components/ui/Button.tsx`** — variants: primary/secondary/danger/ghost; sizes: sm/md/lg (all ≥44px via `min-h-touch`); `loading` spinner prop
+- **`frontend/src/components/ui/Badge.tsx`** — status variants + `RoleBadge` (ADMIN→danger, INVENTORY_MANAGER→success, PROCUREMENT_ANALYST→info)
+- **`frontend/src/components/ui/Card.tsx`** — `Card` + `StatCard` (icon, value, label, sublabel, accent color)
+- **`frontend/src/components/ui/Input.tsx`** — controlled (`onChange: (value: string) => void`); label, error, helpText, prefix/suffix slots; `min-h-touch`
+- **`frontend/src/components/ui/Select.tsx`** — dark-themed `<select>` matching Input styling
+- **`frontend/src/components/ui/Modal.tsx`** — focus trap, Escape/backdrop close, sizes sm/md/lg/xl, footer slot
+- **`frontend/src/components/ui/Toast.tsx`** — `ToastContainer` (fixed top-right, z-toast=70); per-type icons and colour coding
+- **`frontend/src/components/ui/DataTable.tsx`** — generic `DataTable<T>`; client-side sort, loading skeleton rows, empty state, internal pagination with ellipsis
+- **`frontend/src/components/layout/AppShell.tsx`** — Sidebar + TopBar + Outlet layout; sidebar width transitions (240px expanded / 64px collapsed); renders `ToastContainer`
+- **`frontend/src/components/layout/Sidebar.tsx`** — role-filtered nav items (Inventory/Crawling/Admin sections); active `NavLink`; collapsed icon-only mode with title tooltips; collapsed state persisted to `localStorage`
+- **`frontend/src/components/layout/TopBar.tsx`** — fixed header offset by sidebar width; notification bell placeholder; user dropdown with RoleBadge + logout
+- **`frontend/src/components/layout/PageWrapper.tsx`** — `title`, `subtitle`, `actions` slot, `children`
+- **`frontend/src/pages/auth/LoginPage.tsx`** — full-screen dark form, radial gradient background; exports `getDashboardRoute(role)` used by router and ProtectedRoute
+- **`frontend/src/pages/inventory/InventoryDashboard.tsx`** — 4 StatCards + DataTable placeholder for recent transactions
+- **`frontend/src/pages/crawling/CrawlingDashboard.tsx`** — 3 StatCards + DataTable placeholder for recent tasks
+- **`frontend/src/pages/admin/AdminDashboard.tsx`** — 3 StatCards + DataTable placeholders for users and audit log
+- **`frontend/src/pages/common/NotImplementedPage.tsx`** — "Coming soon" placeholder for unimplemented routes
+- **`frontend/src/router/ProtectedRoute.tsx`** — `isLoading` spinner, unauthenticated → `/login`, role mismatch → role dashboard, `allowedRoles` prop
+- **`frontend/src/router/index.tsx`** — `createBrowserRouter`; lazy-loaded pages; role-gated route sub-trees; `AuthenticatedIndex` for `/` root redirect; `NotImplementedPage` catch-all
+- **`frontend/src/main.tsx`** — `QueryClientProvider` → `ToastProvider` → `AuthProvider` → `RouterProvider`
+- **`npx tsc --noEmit`** — zero TypeScript errors across all 26 new files
+
+#### Decisions Made
+- **No CDN icons** — 25 inline SVG components in `icons.tsx`. Satisfies the offline constraint without any external package.
+- **`setUnauthorizedCallback` bridge** — Axios token refresh lives in `api.ts` (outside React). When refresh fails, the bridge callback calls React's `setUser(null)`, which triggers `ProtectedRoute` to redirect to `/login`. This is the clean separation of concerns for this pattern.
+- **Sidebar collapse persisted to `localStorage`** — warehouse kiosk users should not lose their sidebar preference on page reload.
+- **`getDashboardRoute` exported from `LoginPage.tsx`** — both `ProtectedRoute` and `AuthenticatedIndex` need the same role→path mapping; single source of truth in `LoginPage.tsx`.
+- **All dashboard pages are skeletons** — StatCards have hardcoded zeros; DataTables have empty data. Real data wiring happens in Phases 5–7 when the respective APIs are built.
+
+#### Files Changed
+| File | Action |
+|---|---|
+| `frontend/src/types/index.ts` | Created |
+| `frontend/src/contexts/AuthContext.tsx` | Created |
+| `frontend/src/contexts/ToastContext.tsx` | Created |
+| `frontend/src/hooks/useAuth.ts` | Created |
+| `frontend/src/hooks/useToast.ts` | Created |
+| `frontend/src/lib/api.ts` | Updated (unauthorized callback bridge) |
+| `frontend/src/components/ui/icons.tsx` | Created |
+| `frontend/src/components/ui/Button.tsx` | Created |
+| `frontend/src/components/ui/Badge.tsx` | Created |
+| `frontend/src/components/ui/Card.tsx` | Created |
+| `frontend/src/components/ui/Input.tsx` | Created |
+| `frontend/src/components/ui/Select.tsx` | Created |
+| `frontend/src/components/ui/Modal.tsx` | Created |
+| `frontend/src/components/ui/Toast.tsx` | Created |
+| `frontend/src/components/ui/DataTable.tsx` | Created |
+| `frontend/src/components/layout/AppShell.tsx` | Created |
+| `frontend/src/components/layout/Sidebar.tsx` | Created |
+| `frontend/src/components/layout/TopBar.tsx` | Created |
+| `frontend/src/components/layout/PageWrapper.tsx` | Created |
+| `frontend/src/pages/auth/LoginPage.tsx` | Created |
+| `frontend/src/pages/inventory/InventoryDashboard.tsx` | Created |
+| `frontend/src/pages/crawling/CrawlingDashboard.tsx` | Created |
+| `frontend/src/pages/admin/AdminDashboard.tsx` | Created |
+| `frontend/src/pages/common/NotImplementedPage.tsx` | Created |
+| `frontend/src/router/ProtectedRoute.tsx` | Created |
+| `frontend/src/router/index.tsx` | Created |
+| `frontend/src/main.tsx` | Updated |
+| `PLAN.md` | Updated (Phase 4 marked complete) |
+
+#### Phase 4 Complete ✓
+All 26 frontend files written. `npx tsc --noEmit` → zero errors. Vite dev server → HTTP 200.
+
+#### Next Phase
+**Phase 5 — Inventory Operations**: Warehouse & Bin API, Item & SKU API, inventory transactions (receive/issue/transfer/cycle count), stock balance computation, safety stock monitoring.
+
+---

@@ -143,45 +143,45 @@
 ## Phase 4: Frontend Core Layout + Premium UI
 
 ### 4.1 Design System
-- [ ] Define TailwindCSS color palette: dark slate backgrounds, indigo/cyan accents, white text
-- [ ] Create typography scale in `tailwind.config.ts`
-- [ ] Create global CSS reset and base styles in `src/styles/globals.css`
-- [ ] Define spacing and shadow tokens (subtle card shadows, no harsh borders)
+- [x] Define TailwindCSS color palette: dark slate backgrounds, indigo/cyan accents, white text
+- [x] Create typography scale in `tailwind.config.ts`
+- [x] Create global CSS reset and base styles in `src/styles/globals.css`
+- [x] Define spacing and shadow tokens (subtle card shadows, no harsh borders)
 
 ### 4.2 Core Layout Components
-- [ ] `AppShell` — full-screen dark layout with sidebar + main content area
-- [ ] `Sidebar` — role-aware navigation links, collapsible, active state indicators
-- [ ] `TopBar` — page title, notification bell with unread count badge, user menu
-- [ ] `PageWrapper` — consistent padding and max-width container
-- [ ] `LoadingSpinner` — centered full-page and inline variants
+- [x] `AppShell` — full-screen dark layout with sidebar + main content area
+- [x] `Sidebar` — role-aware navigation links, collapsible, active state indicators
+- [x] `TopBar` — page title, notification bell with unread count badge, user menu
+- [x] `PageWrapper` — consistent padding and max-width container
+- [x] `LoadingSpinner` — centered full-page and inline variants
 
 ### 4.3 Reusable UI Components
-- [ ] `Button` — primary, secondary, danger, ghost variants; large touch target (min 44px)
-- [ ] `Input` — dark-styled text input with label, error state, and helper text
-- [ ] `Select` — styled dropdown matching dark theme
-- [ ] `DataTable` — sortable columns, row hover, pagination controls, empty state
-- [ ] `Badge` — status badges (success, warning, error, info, neutral)
-- [ ] `Modal` — accessible dialog with backdrop, close button, focus trap
-- [ ] `Card` — content container with subtle shadow and border
-- [ ] `Toast` — top-right notification toasts (success/error/warning)
+- [x] `Button` — primary, secondary, danger, ghost variants; large touch target (min 44px)
+- [x] `Input` — dark-styled text input with label, error state, and helper text
+- [x] `Select` — styled dropdown matching dark theme
+- [x] `DataTable` — sortable columns, row hover, pagination controls, empty state
+- [x] `Badge` — status badges (success, warning, error, info, neutral)
+- [x] `Modal` — accessible dialog with backdrop, close button, focus trap
+- [x] `Card` — content container with subtle shadow and border
+- [x] `Toast` — top-right notification toasts (success/error/warning)
 
 ### 4.4 Routing & Auth Shell
-- [ ] Set up `react-router-dom` with lazy-loaded route components
-- [ ] Create `ProtectedRoute` wrapper that checks JWT and role
-- [ ] Create `LoginPage` — full-screen dark login form, no external assets
-- [ ] Redirect unauthenticated users to `/login`
-- [ ] Redirect authenticated users to role-appropriate dashboard
+- [x] Set up `react-router-dom` with lazy-loaded route components
+- [x] Create `ProtectedRoute` wrapper that checks JWT and role
+- [x] Create `LoginPage` — full-screen dark login form, no external assets
+- [x] Redirect unauthenticated users to `/login`
+- [x] Redirect authenticated users to role-appropriate dashboard
 
 ### 4.5 Role-Based Navigation
-- [ ] Inventory Manager nav: Dashboard, Receive Stock, Issue Stock, Transfer, Cycle Count, Inventory Search
-- [ ] Procurement Analyst nav: Dashboard, Crawl Sources, Rule Configuration, Task Monitor, Request Debugger
-- [ ] Admin nav: All of the above + User Management, Audit Log, System Settings
-- [ ] Hide nav items not permitted for current role
+- [x] Inventory Manager nav: Dashboard, Receive Stock, Issue Stock, Transfer, Cycle Count, Inventory Search
+- [x] Procurement Analyst nav: Dashboard, Crawl Sources, Rule Configuration, Task Monitor, Request Debugger
+- [x] Admin nav: All of the above + User Management, Audit Log, System Settings
+- [x] Hide nav items not permitted for current role
 
 ### 4.6 Dashboard Pages (Skeleton)
-- [ ] `InventoryDashboard` — stock summary cards, recent transactions table, safety stock alerts list
-- [ ] `CrawlingDashboard` — active tasks count, source health indicators, recent errors
-- [ ] `AdminDashboard` — user count, system status, recent audit entries
+- [x] `InventoryDashboard` — stock summary cards, recent transactions table, safety stock alerts list
+- [x] `CrawlingDashboard` — active tasks count, source health indicators, recent errors
+- [x] `AdminDashboard` — user count, system status, recent audit entries
 
 ---
 
