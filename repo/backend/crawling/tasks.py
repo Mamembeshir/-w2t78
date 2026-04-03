@@ -169,7 +169,11 @@ def promote_waiting_tasks() -> dict:
         if acquire_quota(task.source):
             task.status = CrawlTaskStatus.PENDING
             task.save(update_fields=["status"])
-            execute_crawl_task.delay(task.pk)
+            from .routing import crawl_queue_for_source
+            execute_crawl_task.apply_async(
+                args=[task.pk],
+                queue=crawl_queue_for_source(task.source_id),
+            )
             promoted += 1
 
     return {"promoted": promoted}

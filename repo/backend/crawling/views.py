@@ -281,9 +281,13 @@ class CrawlTaskViewSet(
             status=CrawlTaskStatus.PENDING,
         )
 
-        # Trigger the worker
+        # Trigger the worker on the shard queue for this source
         from .worker import execute_crawl_task
-        execute_crawl_task.delay(task.pk)
+        from .routing import crawl_queue_for_source
+        execute_crawl_task.apply_async(
+            args=[task.pk],
+            queue=crawl_queue_for_source(task.source_id),
+        )
 
         return Response(
             {"deduplicated": False, "task": CrawlTaskSerializer(task).data},
@@ -300,6 +304,10 @@ class CrawlTaskViewSet(
         task.save(update_fields=["status", "attempt_count", "last_error", "next_retry_at"])
 
         from .worker import execute_crawl_task
-        execute_crawl_task.delay(task.pk)
+        from .routing import crawl_queue_for_source
+        execute_crawl_task.apply_async(
+            args=[task.pk],
+            queue=crawl_queue_for_source(task.source_id),
+        )
 
         return Response(CrawlTaskSerializer(task).data)

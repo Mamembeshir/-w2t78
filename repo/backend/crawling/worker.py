@@ -127,8 +127,13 @@ def _schedule_retry(task: CrawlTask, error: str) -> None:
     task.status = CrawlTaskStatus.RETRYING
     task.save(update_fields=["attempt_count", "last_error", "status", "next_retry_at"])
 
-    # Re-schedule the Celery task
-    execute_crawl_task.apply_async(args=[task.pk], countdown=delay_seconds)
+    # Re-schedule the Celery task on the same source shard
+    from .routing import crawl_queue_for_source
+    execute_crawl_task.apply_async(
+        args=[task.pk],
+        countdown=delay_seconds,
+        queue=crawl_queue_for_source(task.source_id),
+    )
 
 
 def _notify_max_retries(task: CrawlTask) -> None:

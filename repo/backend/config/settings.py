@@ -16,6 +16,11 @@ SECRET_KEY = os.environ.get(
     "insecure-dev-key-replace-before-any-real-use",
 )
 DEBUG = os.environ.get("DEBUG", "False") == "True"
+
+# Self-registration for Procurement Analyst role.
+# Default OFF — set REGISTRATION_OPEN=true in the environment to enable.
+# When disabled the /api/auth/register/ endpoint returns HTTP 403.
+REGISTRATION_OPEN = os.environ.get("REGISTRATION_OPEN", "false").lower() == "true"
 ALLOWED_HOSTS = [
     h.strip()
     for h in os.environ.get(
@@ -199,8 +204,9 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": "200/hour",
         "user": "2000/hour",
-        # Named scope used by LoginView only
-        "login": "5/minute",
+        # Named scopes
+        "login":    "5/minute",
+        "register": "3/hour",
     },
 }
 
@@ -262,18 +268,25 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 # Digest fires at 18:00 local wall-clock (SPEC: "6:00 PM").
-# Set TIME_ZONE (and TZ env var) to the site's local timezone so beat schedule
-# runs at 18:00 local time rather than 18:00 UTC.
-CELERY_TIMEZONE = TIME_ZONE
+# Mirrors TIME_ZONE so beat schedule fires at 18:00 local time, not 18:00 UTC.
+# TIME_ZONE is defined in the Internationalisation section below; we read from
+# os.environ directly here so Celery config stays in one block.
+CELERY_TIMEZONE = os.environ.get("TIME_ZONE", "UTC")
 CELERY_ENABLE_UTC = True
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
-# Named queues — worker subscribes to all; beat fires into appropriate queues
+# Named queues — worker subscribes to all; beat fires into appropriate queues.
+# crawling.execute_crawl_task is NOT routed here — it is dispatched with an
+# explicit queue=crawl.<shard> by the caller (see crawling/routing.py).
+# Beat tasks (monitor_canary_versions, release_held_quotas, promote_waiting_tasks)
+# land on crawl.0 as a stable default; they are lightweight and source-agnostic.
 CELERY_TASK_ROUTES = {
-    "crawling.tasks.*": {"queue": "crawl"},
-    "inventory.tasks.*": {"queue": "inventory"},
-    "notifications.tasks.*": {"queue": "notifications"},
+    "crawling.monitor_canary_versions": {"queue": "crawl.0"},
+    "crawling.release_held_quotas": {"queue": "crawl.0"},
+    "crawling.promote_waiting_tasks": {"queue": "crawl.0"},
+    "inventory.*": {"queue": "inventory"},
+    "notifications.*": {"queue": "notifications"},
     "audit.purge_old_audit_logs": {"queue": "notifications"},
 }
 
@@ -311,10 +324,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "crawling.promote_waiting_tasks",
         "schedule": 5.0,
     },
-    # Daily notification digest at 18:00 UTC
+    # Digest dispatcher — runs every minute and sends to users whose send_time matches now
     "send-daily-digests": {
         "task": "notifications.send_daily_digests",
-        "schedule": crontab(hour=18, minute=0),
+        "schedule": 60.0,
     },
     # Retry queued outbound messages every 5 minutes
     "send-outbound-queued": {

@@ -288,10 +288,17 @@ cmd_test() {
     wait_for_mysql
   fi
 
-  info "Running: pytest inside backend container"
+  info "Running: full backend test suite inside container"
   $COMPOSE exec backend sh -c "
     cd /app && \
-    python -m pytest tests/ \
+    python -m pytest \
+      tests/ \
+      accounts/tests.py \
+      inventory/tests.py \
+      crawling/tests.py \
+      notifications/tests.py \
+      audit/tests.py \
+      warehouse/tests.py \
       --tb=short \
       -v \
       --no-header \
