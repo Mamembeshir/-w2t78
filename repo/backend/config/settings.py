@@ -244,17 +244,19 @@ CORS_ALLOW_ALL_ORIGINS = False  # explicit: never wildcard
 # Covers: supplier credentials, crawl rule secrets, API keys, tokens
 # Generate key: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 # ─────────────────────────────────────────────────────────────────────────────
-FIELD_ENCRYPTION_KEY = os.environ.get("FIELD_ENCRYPTION_KEY", "")
+# Dev/CI fallback — a valid Fernet key used when FIELD_ENCRYPTION_KEY is not
+# set in the environment.  Never use this value in production; set a real key
+# via the environment variable before deploying.
+_DEV_FERNET_KEY = "yJ7SB6N0BHk2PUlnL_6W2cmTQVbbtB83dr9JOwbr5l0="
+FIELD_ENCRYPTION_KEY = os.environ.get("FIELD_ENCRYPTION_KEY") or _DEV_FERNET_KEY
 
-# Warn loudly if the encryption key is missing outside of test runs.
-# Encrypted fields (supplier credentials, crawl rule secrets) will silently
-# produce corrupted ciphertext when the key is empty or invalid.
-if not _TESTING and not FIELD_ENCRYPTION_KEY:
+# Warn loudly when falling back to the dev key outside of test runs.
+if not _TESTING and FIELD_ENCRYPTION_KEY == _DEV_FERNET_KEY:
     import warnings
     warnings.warn(
-        "FIELD_ENCRYPTION_KEY is not set. Encrypted model fields (supplier credentials, "
-        "crawl rule request_headers) will not be protected at rest. "
-        "Set FIELD_ENCRYPTION_KEY in your environment before running in production.",
+        "FIELD_ENCRYPTION_KEY is not set. Using the insecure dev default key. "
+        "Encrypted model fields (supplier credentials, crawl rule request_headers) "
+        "are NOT protected at rest. Set FIELD_ENCRYPTION_KEY before going to production.",
         RuntimeWarning,
         stacklevel=2,
     )
