@@ -4,12 +4,14 @@ services:
   db:
     image: mysql:8.0
     restart: unless-stopped
-    env_file: .env
+    env_file:
+      - path: .env
+        required: false
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-dev_root_pw}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-warehouse_db}
+      MYSQL_USER: ${MYSQL_USER:-warehouse_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-warehouse_pass}
     volumes:
       - db_data:/var/lib/mysql
       - ./docker/mysql/init.sh:/docker-entrypoint-initdb.d/01-init.sh:ro
@@ -17,7 +19,7 @@ services:
       - "3307:3306"
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1",
-             "-u", "root", "--password=${MYSQL_ROOT_PASSWORD}"]
+             "-u", "root", "--password=${MYSQL_ROOT_PASSWORD:-dev_root_pw}"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -44,9 +46,18 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
-    env_file: .env
+    env_file:
+      - path: .env
+        required: false
     environment:
       DB_HOST: db
+      DB_NAME: ${DB_NAME:-warehouse_db}
+      DB_USER: ${DB_USER:-warehouse_user}
+      DB_PASSWORD: ${DB_PASSWORD:-warehouse_pass}
+      DB_PORT: ${DB_PORT:-3306}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-insecure-dev-key-replace-before-any-real-use}
+      FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:-yJ7SB6N0BHk2PUlnL_6W2cmTQVbbtB83dr9JOwbr5l0=}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend,0.0.0.0}
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
@@ -72,9 +83,17 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
-    env_file: .env
+    env_file:
+      - path: .env
+        required: false
     environment:
       DB_HOST: db
+      DB_NAME: ${DB_NAME:-warehouse_db}
+      DB_USER: ${DB_USER:-warehouse_user}
+      DB_PASSWORD: ${DB_PASSWORD:-warehouse_pass}
+      DB_PORT: ${DB_PORT:-3306}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-insecure-dev-key-replace-before-any-real-use}
+      FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:-yJ7SB6N0BHk2PUlnL_6W2cmTQVbbtB83dr9JOwbr5l0=}
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
@@ -97,9 +116,17 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
-    env_file: .env
+    env_file:
+      - path: .env
+        required: false
     environment:
       DB_HOST: db
+      DB_NAME: ${DB_NAME:-warehouse_db}
+      DB_USER: ${DB_USER:-warehouse_user}
+      DB_PASSWORD: ${DB_PASSWORD:-warehouse_pass}
+      DB_PORT: ${DB_PORT:-3306}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-insecure-dev-key-replace-before-any-real-use}
+      FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:-yJ7SB6N0BHk2PUlnL_6W2cmTQVbbtB83dr9JOwbr5l0=}
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
@@ -122,7 +149,9 @@ services:
       dockerfile: Dockerfile
       target: dev
     restart: unless-stopped
-    env_file: .env
+    env_file:
+      - path: .env
+        required: false
     environment:
       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
     volumes:
