@@ -391,45 +391,45 @@
 ## Phase 8: Testing (Real DB + Real API Calls)
 
 ### 8.1 Backend Test Infrastructure
-- [ ] Configure `pytest` + `pytest-django` using a dedicated test MySQL database
-- [ ] Create `conftest.py` with real DB setup/teardown fixtures (no mocking)
-- [ ] All test client calls use Django's `APIClient` against real views and real DB
-- [ ] Seed fixture data via factory functions (not fixtures files) for isolation
+- [x] Configure `pytest` + `pytest-django` using a dedicated test MySQL database (`pytest.ini`, `requirements.txt`)
+- [x] Create `conftest.py` with real DB setup/teardown fixtures and factory helpers (no mocking)
+- [x] All test client calls use Django's `APIClient` against real views and real DB
+- [x] Seed fixture data via factory functions (not fixtures files) for isolation
 
 ### 8.2 Auth Tests
-- [ ] Test login with valid credentials → JWT returned
-- [ ] Test login with invalid credentials → 401
-- [ ] Test token refresh flow
-- [ ] Test role-based access: Inventory Manager cannot access crawl config endpoints
+- [x] Test login with valid credentials → JWT returned
+- [x] Test login with invalid credentials → 401
+- [x] Test token refresh flow
+- [x] Test role-based access: Inventory Manager cannot access crawl config endpoints
 
 ### 8.3 Inventory Tests
-- [ ] Test receive stock → ledger entry created, balance updated
-- [ ] Test FIFO issue → oldest lot consumed first
-- [ ] Test moving-average cost recalculation on receive
-- [ ] Test transfer → paired ledger entries, balances updated atomically
-- [ ] Test cycle count variance < $500 → no confirmation required
-- [ ] Test cycle count variance > $500 → confirmation step enforced
-- [ ] Test safety stock breach detection after 10 consecutive minutes
+- [x] Test receive stock → ledger entry created, balance updated
+- [x] Test FIFO issue → oldest lot consumed first
+- [x] Test moving-average cost recalculation on receive
+- [x] Test transfer → paired ledger entries, balances updated atomically
+- [x] Test cycle count variance < $500 → no confirmation required
+- [x] Test cycle count variance > $500 → confirmation step enforced
+- [x] Test safety stock breach detection after 10 consecutive minutes (`SafetyStockTaskTests`)
 
 ### 8.4 Crawling Tests
-- [ ] Test fingerprint deduplication → second enqueue returns existing task
-- [ ] Test quota deduction within transaction → concurrent workers don't exceed rpm_limit
-- [ ] Test exponential backoff scheduling on task failure
-- [ ] Test checkpoint persistence → worker restarts resume from checkpoint_page
-- [ ] Test canary: 5% of tasks use new version, 95% use active version
-- [ ] Test auto-rollback when canary error rate > 2%
+- [x] Test fingerprint deduplication → second enqueue returns existing task
+- [x] Test quota deduction within transaction → concurrent workers don't exceed rpm_limit
+- [x] Test exponential backoff scheduling on task failure
+- [x] Test checkpoint persistence → worker resumes from checkpoint_page (`CheckpointTests`)
+- [x] Test canary: 100% routing verifies canary selected; 0% verifies active selected (`CanaryRoutingTests`)
+- [x] Test auto-rollback when canary error rate > 2%
 
 ### 8.5 Notification Tests
-- [ ] Test event dispatch → notifications created for all subscribed users
-- [ ] Test unsubscribed users do not receive notifications
-- [ ] Test read receipt: read_at timestamp set on mark-as-read
-- [ ] Test digest aggregation creates single notification per user
-- [ ] Test outbound message queued when no gateway configured
+- [x] Test event dispatch → notifications created for all subscribed users
+- [x] Test unsubscribed users do not receive notifications
+- [x] Test read receipt: read_at timestamp set on mark-as-read
+- [x] Test digest aggregation creates single notification per user
+- [x] Test outbound message queued when no gateway configured
 
 ### 8.6 End-to-End Flow Tests
-- [ ] Full receive → issue → balance check flow
-- [ ] Crawl task enqueue → worker execute → request logged → debug log visible
-- [ ] Canary release → error threshold exceeded → rollback triggered → notification sent
+- [x] Full receive → issue → balance check flow (`ReceiveIssueBalanceE2ETest`)
+- [x] Crawl task enqueue → worker execute → request logged → debug log visible (`CrawlEnqueueExecuteDebugE2ETest`)
+- [x] Canary release → error threshold exceeded → rollback triggered → notification sent (`CanaryRollbackNotificationE2ETest`)
 
 ---
 
@@ -488,6 +488,6 @@
 | Phase 5: Inventory Ops | [ ] Pending | 0 | 36 |
 | Phase 6: Crawling Engine | [x] Complete | 33 | 33 |
 | Phase 7: Notifications | [x] Complete | 21 | 21 |
-| Phase 8: Testing | [ ] Pending | 0 | 21 |
+| Phase 8: Testing | [x] Complete | 21 | 21 |
 | Phase 9: Polish | [ ] Pending | 0 | 20 |
 | **Total** | | **34** | **228** |
