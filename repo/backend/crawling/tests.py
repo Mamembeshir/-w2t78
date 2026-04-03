@@ -750,3 +750,46 @@ class CrawlingRBACTests(TestCase):
             "parameters": {},
         }, format="json")
         self.assertIn(resp.status_code, (status.HTTP_201_CREATED, status.HTTP_200_OK))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SPEC constant alignment — Finding 5
+# ─────────────────────────────────────────────────────────────────────────────
+
+class WorkerConstantsTests(TestCase):
+    """
+    Verify that worker module constants exactly match SPEC.md values.
+
+    Keeps implementation honest: changing a constant silently would break
+    SPEC alignment without a failing test to catch it.
+    """
+
+    def test_backoff_schedule_matches_spec(self):
+        """Backoff delays: 10 s → 30 s → 2 min → 10 min, max 5 attempts."""
+        from .worker import _BACKOFF, _MAX_ATTEMPTS
+        self.assertEqual(_MAX_ATTEMPTS, 5, "SPEC: max 5 attempts")
+        self.assertEqual(_BACKOFF[0], 10,  "SPEC: first retry delay 10 s")
+        self.assertEqual(_BACKOFF[1], 30,  "SPEC: second retry delay 30 s")
+        self.assertEqual(_BACKOFF[2], 120, "SPEC: third retry delay 2 min (120 s)")
+        self.assertEqual(_BACKOFF[3], 600, "SPEC: fourth retry delay 10 min (600 s)")
+
+    def test_log_keep_matches_spec(self):
+        """Visual debugger retains last 20 request/response samples (SPEC §6.6)."""
+        from .worker import _LOG_KEEP
+        self.assertEqual(_LOG_KEEP, 20, "SPEC: keep last 20 debug log entries per source")
+
+    def test_checkpoint_interval_matches_spec(self):
+        """Checkpoint written every 100 pages (SPEC)."""
+        from .worker import _CHECKPOINT_INTERVAL
+        self.assertEqual(_CHECKPOINT_INTERVAL, 100, "SPEC: checkpoint every 100 pages")
+
+    def test_canary_pct_default_matches_spec(self):
+        """New CrawlRuleVersion defaults to canary_pct=5 (5% of tasks per SPEC §1)."""
+        source = make_source("CONST_CANARY_SRC")
+        rv = CrawlRuleVersion.objects.create(
+            source=source,
+            version_number=1,
+            url_pattern="http://const.test/",
+            version_note="spec constant test",
+        )
+        self.assertEqual(rv.canary_pct, 5, "SPEC: canary routes 5% of tasks")

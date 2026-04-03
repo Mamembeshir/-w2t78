@@ -214,6 +214,15 @@ class SubscriptionAPITests(TestCase):
         self.assertIn("CRAWL_TASK_FAILED", event_types)
         self.assertNotIn("DIGEST", event_types)
 
+    def test_cannot_delete_another_users_subscription(self):
+        """IDOR guard: attempting to DELETE another user's subscription returns 404."""
+        other = create_user("idor_sub_other")
+        other_sub = subscribe(other, EventType.CRAWL_TASK_FAILED)
+        resp = self.client.delete(f"/api/notifications/subscriptions/{other_sub.pk}/")
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+        # Subscription still exists — not deleted
+        self.assertTrue(NotificationSubscription.objects.filter(pk=other_sub.pk).exists())
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 7.3 Inbox API

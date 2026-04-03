@@ -365,7 +365,10 @@ SMS_GATEWAY_URL = os.environ.get("SMS_GATEWAY_URL", "")
 # Internationalisation
 # ─────────────────────────────────────────────────────────────────────────────
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = "UTC"
+# Operators can set TIME_ZONE in the environment (.env) to match their site's
+# wall-clock.  Default UTC keeps behaviour deterministic in CI/CD pipelines.
+# Digest send_time comparisons use localtime() so this value matters.
+TIME_ZONE = os.environ.get("TIME_ZONE", "UTC")
 USE_I18N = True
 USE_TZ = True
 

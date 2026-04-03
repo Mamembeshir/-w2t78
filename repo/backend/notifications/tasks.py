@@ -30,14 +30,18 @@ def send_daily_digests(_now=None) -> dict:
     from .dispatcher import _queue_outbound
 
     now = _now if _now is not None else timezone.now()
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    # Convert to the configured Django timezone so the digest fires at the
+    # operator's wall-clock 6 PM (SPEC: "6:00 PM"), not necessarily 6 PM UTC.
+    local_now = timezone.localtime(now)
+    today_start = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
 
     # Only process schedules whose send_time matches the current hour:minute
-    # and that have not already been sent today.
+    # (in the site's configured TIME_ZONE) and that have not already been
+    # sent today.
     due_schedules = DigestSchedule.objects.select_related("user").filter(
         user__is_active=True,
-        send_time__hour=now.hour,
-        send_time__minute=now.minute,
+        send_time__hour=local_now.hour,
+        send_time__minute=local_now.minute,
     ).exclude(
         last_sent_at__gte=today_start,
     )
