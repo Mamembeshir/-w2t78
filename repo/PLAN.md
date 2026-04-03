@@ -449,7 +449,7 @@
 
 ### 9.1 Offline Asset Audit
 - [x] Audit all HTML/JS/CSS for any external URL references (CDN, fonts, APIs)
-- [ ] Bundle QuaggaJS locally in `frontend/src/vendor/` (deferred: camera scanning not yet implemented)
+- [x] Camera barcode scanning implemented via `@ericblade/quagga2` npm package (bundled at build time, no CDN); `BarcodeScanner` component integrated into ReceiveStockPage, IssueStockPage, and CycleCountPage
 - [x] Verify all fonts are self-hosted or system fonts only
 - [x] Confirm `vite build` output has zero external dependencies
 

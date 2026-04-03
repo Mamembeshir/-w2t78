@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
+import { BarcodeScanner } from '@/components/ui/BarcodeScanner'
 import { useToast } from '@/hooks/useToast'
 import { extractFieldErrors, extractMessage } from '@/lib/formErrors'
 import {
@@ -29,6 +30,7 @@ export function ReceiveStockPage() {
   const [reference, setReference] = useState('')
   const [lastResult, setLastResult] = useState<Record<string, unknown> | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [cameraOpen, setCameraOpen] = useState(false)
 
   const { data: itemsData } = useItems(scanValue || undefined)
   const { data: warehousesData } = useWarehouses()
@@ -47,6 +49,20 @@ export function ReceiveStockPage() {
       setSelectedItemId(match.id)
       setScanValue(match.sku)
     }
+  }
+
+  function handleCameraDetected(code: string) {
+    setScanValue(code)
+    setCameraOpen(false)
+    // Attempt direct match; user can press Enter if not found
+    const match = itemsData?.results.find(
+      i => i.sku.toLowerCase() === code.toLowerCase()
+    )
+    if (match) {
+      setSelectedItemId(match.id)
+      setScanValue(match.sku)
+    }
+    scanRef.current?.focus()
   }
 
   const selectedItem = itemsData?.results.find(i => i.id === selectedItemId)
@@ -103,21 +119,43 @@ export function ReceiveStockPage() {
 
   return (
     <PageWrapper title="Receive Stock" subtitle="Record incoming stock into a warehouse location.">
+      <BarcodeScanner
+        isOpen={cameraOpen}
+        onDetected={handleCameraDetected}
+        onClose={() => setCameraOpen(false)}
+      />
+
       <div className="max-w-2xl">
         {/* Scan / lookup field */}
         <Card className="mb-6">
           <h3 className="text-sm font-semibold text-text-secondary mb-3 uppercase tracking-wide">
             Item Lookup
           </h3>
-          <Input
-            ref={scanRef}
-            label="Scan barcode or enter SKU"
-            value={scanValue}
-            onChange={v => { setScanValue(v); setSelectedItemId(null) }}
-            onKeyDown={e => { if (e.key === 'Enter') handleScanEnter(scanValue) }}
-            placeholder="Scan or type SKU…"
-            helpText="Barcode scanner (keyboard wedge) or manual entry — press Enter to look up."
-          />
+          <div className="flex gap-2 items-end">
+            <div className="flex-1">
+              <Input
+                ref={scanRef}
+                label="Scan barcode or enter SKU"
+                value={scanValue}
+                onChange={v => { setScanValue(v); setSelectedItemId(null) }}
+                onKeyDown={e => { if (e.key === 'Enter') handleScanEnter(scanValue) }}
+                placeholder="Scan or type SKU…"
+                helpText="Keyboard wedge, manual entry, or use the camera button."
+              />
+            </div>
+            <button
+              type="button"
+              title="Use camera to scan barcode"
+              onClick={() => setCameraOpen(true)}
+              className="mb-5 p-2.5 min-h-touch rounded-xl border border-surface-600 bg-surface-800 text-text-muted hover:text-primary-400 hover:border-primary-500 transition-colors"
+              aria-label="Open camera scanner"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
+              </svg>
+            </button>
+          </div>
           {/* Live search suggestions */}
           {scanValue && !selectedItemId && (itemsData?.results ?? []).length > 0 && (
             <ul className="mt-2 border border-surface-600 rounded-lg overflow-hidden">
