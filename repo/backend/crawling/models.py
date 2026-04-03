@@ -19,6 +19,7 @@ from core.models import TimeStampedModel
 
 class CrawlTaskStatus(models.TextChoices):
     PENDING = "PENDING", "Pending"
+    WAITING = "WAITING", "Waiting (quota exceeded)"
     RUNNING = "RUNNING", "Running"
     COMPLETED = "COMPLETED", "Completed"
     FAILED = "FAILED", "Failed"

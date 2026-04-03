@@ -38,7 +38,7 @@ urlpatterns = [
     # Inventory — Phase 5
     path("api/", include("inventory.urls")),
     # Crawling — Phase 6
-    # path("api/crawl/", include("crawling.urls")),
+    path("api/crawl/", include("crawling.urls")),
     # Notifications — Phase 7
     # path("api/notifications/", include("notifications.urls")),
 ]

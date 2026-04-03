@@ -23,5 +23,8 @@ django-celery-results==2.5.1
 # CORS
 django-cors-headers==4.6.0
 
+# HTTP client (crawl worker)
+requests==2.32.3
+
 # Utilities
 python-decouple==3.8

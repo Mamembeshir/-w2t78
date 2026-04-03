@@ -258,6 +258,21 @@ CELERY_BEAT_SCHEDULE = {
         "task": "inventory.check_safety_stock",
         "schedule": 60.0,  # seconds
     },
+    # Canary monitoring — every minute
+    "monitor-canary-versions": {
+        "task": "crawling.monitor_canary_versions",
+        "schedule": 60.0,
+    },
+    # Release held quotas — every 15 minutes
+    "release-held-quotas": {
+        "task": "crawling.release_held_quotas",
+        "schedule": crontab(minute="*/15"),
+    },
+    # Waitlist promotion — every 5 seconds
+    "promote-waiting-tasks": {
+        "task": "crawling.promote_waiting_tasks",
+        "schedule": 5.0,
+    },
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
