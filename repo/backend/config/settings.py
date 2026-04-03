@@ -245,18 +245,32 @@ CORS_ALLOW_ALL_ORIGINS = False  # explicit: never wildcard
 # Generate key: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 # ─────────────────────────────────────────────────────────────────────────────
 # Dev/CI fallback — a valid Fernet key used when FIELD_ENCRYPTION_KEY is not
-# set in the environment.  Never use this value in production; set a real key
-# via the environment variable before deploying.
+# set or is set to a placeholder.  Never use this value in production.
 _DEV_FERNET_KEY = "yJ7SB6N0BHk2PUlnL_6W2cmTQVbbtB83dr9JOwbr5l0="
-FIELD_ENCRYPTION_KEY = os.environ.get("FIELD_ENCRYPTION_KEY") or _DEV_FERNET_KEY
+
+
+def _resolve_encryption_key() -> str:
+    """Return a valid Fernet key, falling back to the dev default if the
+    environment value is absent, empty, or not accepted by Fernet."""
+    from cryptography.fernet import Fernet, InvalidToken  # noqa: F401
+    candidate = os.environ.get("FIELD_ENCRYPTION_KEY", "").strip()
+    if candidate:
+        try:
+            Fernet(candidate)   # raises ValueError if key is malformed
+            return candidate
+        except Exception:
+            pass
+    return _DEV_FERNET_KEY
+
+
+FIELD_ENCRYPTION_KEY = _resolve_encryption_key()
 
 # Warn loudly when falling back to the dev key outside of test runs.
 if not _TESTING and FIELD_ENCRYPTION_KEY == _DEV_FERNET_KEY:
     import warnings
     warnings.warn(
-        "FIELD_ENCRYPTION_KEY is not set. Using the insecure dev default key. "
-        "Encrypted model fields (supplier credentials, crawl rule request_headers) "
-        "are NOT protected at rest. Set FIELD_ENCRYPTION_KEY before going to production.",
+        "FIELD_ENCRYPTION_KEY is not set or is invalid. Using the insecure dev "
+        "default key. Set a valid Fernet key before going to production.",
         RuntimeWarning,
         stacklevel=2,
     )
