@@ -7,6 +7,7 @@ import { Select } from '@/components/ui/Select'
 import { Card } from '@/components/ui/Card'
 import { Modal } from '@/components/ui/Modal'
 import { useToast } from '@/hooks/useToast'
+import { extractFieldErrors, extractMessage } from '@/lib/formErrors'
 import { useItems, useWarehouses, useBins, useBalances, useTransferStock } from '@/hooks/useInventory'
 
 export function TransferPage() {
@@ -22,6 +23,7 @@ export function TransferPage() {
   const [quantity, setQuantity] = useState('')
   const [reference, setReference] = useState('')
   const [showConfirm, setShowConfirm] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   const { data: itemsData } = useItems(debouncedItemSearch || undefined)
   const { data: warehousesData } = useWarehouses()
@@ -62,8 +64,12 @@ export function TransferPage() {
       setFromWarehouseId(null); setFromBinId(null)
       setToWarehouseId(null); setToBinId(null)
     } catch (err: unknown) {
-      const data = (err as { response?: { data?: { message?: string } } })?.response?.data
-      toast.error(data?.message ?? 'Transfer failed.')
+      const fe = extractFieldErrors(err)
+      if (Object.keys(fe).length) {
+        setFieldErrors(fe)
+      } else {
+        toast.error(extractMessage(err, 'Transfer failed.'))
+      }
     }
   }
 
@@ -134,9 +140,11 @@ export function TransferPage() {
         {/* Quantity & ref */}
         <Card className="space-y-4">
           <h3 className="text-sm font-semibold text-text-secondary uppercase tracking-wide">Quantity</h3>
-          <Input label="Transfer Quantity" value={quantity} onChange={setQuantity}
+          <Input label="Transfer Quantity"
+            value={quantity}
+            onChange={v => { setQuantity(v); setFieldErrors(e => { const n={...e}; delete n.quantity; return n }) }}
             placeholder="0.0000" type="number"
-            error={qtyExceeded ? `Exceeds available stock (${availableQty})` : undefined} />
+            error={qtyExceeded ? `Exceeds available stock (${availableQty})` : fieldErrors.quantity} />
           <Input label="Reference (optional)" value={reference} onChange={setReference}
             placeholder="Transfer note…" />
           <Button type="button" variant="primary" size="lg" className="w-full"

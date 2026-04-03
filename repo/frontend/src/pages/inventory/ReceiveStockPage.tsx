@@ -6,6 +6,7 @@ import { Select } from '@/components/ui/Select'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { useToast } from '@/hooks/useToast'
+import { extractFieldErrors, extractMessage } from '@/lib/formErrors'
 import {
   useItems,
   useWarehouses,
@@ -27,6 +28,7 @@ export function ReceiveStockPage() {
   const [unitCost, setUnitCost] = useState('')
   const [reference, setReference] = useState('')
   const [lastResult, setLastResult] = useState<Record<string, unknown> | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   const { data: itemsData } = useItems(scanValue || undefined)
   const { data: warehousesData } = useWarehouses()
@@ -52,6 +54,7 @@ export function ReceiveStockPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!selectedItemId || !warehouseId || !quantity || !unitCost) return
+    setFieldErrors({})
 
     try {
       const result = await receive.mutateAsync({
@@ -73,11 +76,15 @@ export function ReceiveStockPage() {
       setReference('')
       setBinId(null)
       setLotId(null)
+      setFieldErrors({})
       scanRef.current?.focus()
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-        ?? 'Receive failed.'
-      toast.error(msg)
+      const fe = extractFieldErrors(err)
+      if (Object.keys(fe).length) {
+        setFieldErrors(fe)
+      } else {
+        toast.error(extractMessage(err, 'Receive failed.'))
+      }
     }
   }
 
@@ -175,17 +182,19 @@ export function ReceiveStockPage() {
               <Input
                 label="Quantity"
                 value={quantity}
-                onChange={setQuantity}
+                onChange={v => { setQuantity(v); setFieldErrors(e => { const n={...e}; delete n.quantity; return n }) }}
                 placeholder="0.0000"
                 type="number"
+                error={fieldErrors.quantity}
               />
               <Input
                 label="Unit Cost"
                 value={unitCost}
-                onChange={setUnitCost}
+                onChange={v => { setUnitCost(v); setFieldErrors(e => { const n={...e}; delete n.unit_cost; return n }) }}
                 placeholder="0.000000"
                 type="number"
                 prefix="$"
+                error={fieldErrors.unit_cost}
               />
             </div>
 
@@ -194,6 +203,7 @@ export function ReceiveStockPage() {
               value={reference}
               onChange={setReference}
               placeholder="PO number, delivery note…"
+              error={fieldErrors.reference}
             />
 
             <div className="pt-2">

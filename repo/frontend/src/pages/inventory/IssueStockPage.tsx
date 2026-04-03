@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { DataTable } from '@/components/ui/DataTable'
 import { useToast } from '@/hooks/useToast'
+import { extractFieldErrors, extractMessage } from '@/lib/formErrors'
 import {
   useItems,
   useWarehouses,
@@ -36,6 +37,7 @@ export function IssueStockPage() {
   const [quantity, setQuantity] = useState('')
   const [reference, setReference] = useState('')
   const [issuedEntries, setIssuedEntries] = useState<LedgerEntry[]>([])
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   const { data: itemsData } = useItems(scanValue || undefined)
   const { data: warehousesData } = useWarehouses()
@@ -78,7 +80,12 @@ export function IssueStockPage() {
       if (data?.code === 'insufficient_stock') {
         toast.error(`Insufficient stock: ${data.message}`)
       } else {
-        toast.error(data?.message ?? 'Issue failed.')
+        const fe = extractFieldErrors(err)
+        if (Object.keys(fe).length) {
+          setFieldErrors(fe)
+        } else {
+          toast.error(extractMessage(err, 'Issue failed.'))
+        }
       }
     }
   }
@@ -186,14 +193,15 @@ export function IssueStockPage() {
             <Input
               label="Quantity"
               value={quantity}
-              onChange={setQuantity}
+              onChange={v => { setQuantity(v); setFieldErrors(e => { const n={...e}; delete n.quantity; return n }) }}
               placeholder="0.0000"
               type="number"
-              error={qtyExceeded ? `Exceeds available stock (${availableQty})` : undefined}
+              error={qtyExceeded ? `Exceeds available stock (${availableQty})` : fieldErrors.quantity}
             />
 
             <Input label="Work Order / Reference" value={reference} onChange={setReference}
-              placeholder="WO-12345, pick ticket…" />
+              placeholder="WO-12345, pick ticket…"
+              error={fieldErrors.reference} />
 
             <div className="pt-2">
               <Button type="submit" variant="primary" size="lg" className="w-full"

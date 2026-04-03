@@ -398,6 +398,69 @@ class CycleCountTests(TestCase):
         balance = StockBalance.objects.get(item=item_c, warehouse=self.wh, bin=None)
         self.assertEqual(balance.quantity_on_hand, Decimal("0"))
 
+    def test_variance_exactly_at_threshold_does_not_require_confirmation(self):
+        """Variance of exactly $500.00 is NOT > threshold — should auto-confirm."""
+        # 100 units on hand @ $5/unit → avg_cost = $5
+        # counted_qty = 0 → variance_qty = -100, variance_value = 100 * $5 = $500
+        # $500 is NOT > $500 → auto-confirmed
+        start = self._start().json()
+        resp = self.client.post(
+            f"/api/inventory/cycle-count/{start['id']}/submit/",
+            {"counted_qty": "0"},
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertFalse(resp.json()["variance_confirmation_required"])
+        self.assertEqual(resp.json()["session"]["status"], CycleCountStatus.CONFIRMED)
+
+    def test_variance_just_above_threshold_requires_confirmation(self):
+        """101 units @ $5 = $505 variance — must require confirmation."""
+        item_v = make_item("CC_BORDER", CostingMethod.MOVING_AVG)
+        self.client.post("/api/inventory/receive/", {
+            "item_id": item_v.pk, "warehouse_id": self.wh.pk,
+            "quantity": "101", "unit_cost": "5.00",
+        })
+        start = self.client.post("/api/inventory/cycle-count/start/", {
+            "item_id": item_v.pk, "warehouse_id": self.wh.pk,
+        }).json()
+        resp = self.client.post(
+            f"/api/inventory/cycle-count/{start['id']}/submit/",
+            {"counted_qty": "0"},  # 101 * $5 = $505 > $500
+        )
+        self.assertTrue(resp.json()["variance_confirmation_required"])
+        self.assertEqual(resp.json()["session"]["status"], CycleCountStatus.PENDING_CONFIRM)
+
+    def test_cannot_submit_already_confirmed_session(self):
+        """Submitting to a CONFIRMED session should return 404."""
+        start = self._start().json()
+        self.client.post(
+            f"/api/inventory/cycle-count/{start['id']}/submit/",
+            {"counted_qty": "99"},
+        )
+        resp = self.client.post(
+            f"/api/inventory/cycle-count/{start['id']}/submit/",
+            {"counted_qty": "50"},
+        )
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_analyst_cannot_start_cycle_count(self):
+        """PROCUREMENT_ANALYST must not start cycle counts (403)."""
+        analyst = create_user("cc_analyst", Role.PROCUREMENT_ANALYST)
+        self.client.force_authenticate(user=analyst)
+        resp = self.client.post("/api/inventory/cycle-count/start/", {
+            "item_id": self.item.pk,
+            "warehouse_id": self.wh.pk,
+        })
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_unauthenticated_cannot_start_cycle_count(self):
+        """Unauthenticated requests must receive 401."""
+        self.client.credentials()
+        resp = self.client.post("/api/inventory/cycle-count/start/", {
+            "item_id": self.item.pk,
+            "warehouse_id": self.wh.pk,
+        })
+        self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 5.7 Stock Balance API
