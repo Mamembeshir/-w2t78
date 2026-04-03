@@ -62,6 +62,7 @@ AUTH_USER_MODEL = "accounts.User"
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "config.security_middleware.SecurityHeadersMiddleware",
+    "config.request_id_middleware.RequestIDMiddleware",   # end-to-end request tracing
     "corsheaders.middleware.CorsMiddleware",          # before CommonMiddleware
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -260,7 +261,10 @@ CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://redis:6
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
-CELERY_TIMEZONE = "UTC"
+# Digest fires at 18:00 local wall-clock (SPEC: "6:00 PM").
+# Set TIME_ZONE (and TZ env var) to the site's local timezone so beat schedule
+# runs at 18:00 local time rather than 18:00 UTC.
+CELERY_TIMEZONE = TIME_ZONE
 CELERY_ENABLE_UTC = True
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True

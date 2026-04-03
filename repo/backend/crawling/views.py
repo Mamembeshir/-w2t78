@@ -33,10 +33,15 @@ from .serializers import (
 )
 
 
-def _compute_fingerprint(url: str, params: dict) -> str:
-    """SHA-256 of url + sorted params JSON (CLAUDE.md §3)."""
+def _compute_fingerprint(url: str, params: dict, headers: dict | None = None) -> str:
+    """SHA-256 of url + sorted params JSON + sorted headers JSON (CLAUDE.md §3).
+
+    'relevant headers' are the request_headers from the active rule version —
+    e.g. Authorization, custom API keys — that differentiate crawl requests.
+    """
     sorted_params = json.dumps(dict(sorted(params.items())), sort_keys=True)
-    raw = f"{url}|{sorted_params}"
+    sorted_headers = json.dumps(dict(sorted((headers or {}).items())), sort_keys=True)
+    raw = f"{url}|{sorted_params}|{sorted_headers}"
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
@@ -246,7 +251,15 @@ class CrawlTaskViewSet(
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        fingerprint = _compute_fingerprint(d["url"], d.get("parameters", {}))
+        # Include rule-version request_headers in fingerprint (CLAUDE.md §3)
+        rule_headers: dict = {}
+        if rule_version.request_headers:
+            try:
+                rule_headers = json.loads(rule_version.request_headers)
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        fingerprint = _compute_fingerprint(d["url"], d.get("parameters", {}), rule_headers)
 
         # Idempotency: return existing task if fingerprint matches
         existing = CrawlTask.objects.filter(fingerprint=fingerprint).first()
