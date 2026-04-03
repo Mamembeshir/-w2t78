@@ -57,13 +57,13 @@ export function IssueStockPage() {
   function handleCameraDetected(code: string) {
     setScanValue(code)
     setCameraOpen(false)
-    const match = itemsData?.results.find(i => i.sku.toLowerCase() === code.toLowerCase())
+    const match = itemsData?.results?.find(i => i.sku.toLowerCase() === code.toLowerCase())
     if (match) { setSelectedItemId(match.id); setScanValue(match.sku) }
     scanRef.current?.focus()
   }
 
-  const selectedItem = itemsData?.results.find(i => i.id === selectedItemId)
-  const currentBalance = balancesData?.results.find(
+  const selectedItem = itemsData?.results?.find(i => i.id === selectedItemId)
+  const currentBalance = balancesData?.results?.find(
     b => b.item === selectedItemId && b.warehouse === warehouseId && b.bin === binId
   )
 
@@ -136,7 +136,7 @@ export function IssueStockPage() {
                 value={scanValue}
                 onChange={v => { setScanValue(v); setSelectedItemId(null) }}
                 onKeyDown={e => { if (e.key === 'Enter') {
-                  const match = itemsData?.results.find(i => i.sku.toLowerCase() === scanValue.toLowerCase())
+                  const match = itemsData?.results?.find(i => i.sku.toLowerCase() === scanValue.toLowerCase())
                   if (match) { setSelectedItemId(match.id); setScanValue(match.sku) }
                 }}}
                 placeholder="Scan or type SKU…"

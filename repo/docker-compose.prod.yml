@@ -14,6 +14,15 @@ services:
     environment:
       DEBUG: "False"
       GUNICORN_WORKERS: "5"   # adjust to 2 × (nproc) + 1 for your host
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py seed_users &&
+             gunicorn config.wsgi:application
+               --bind 0.0.0.0:8000
+               --workers ${GUNICORN_WORKERS:-5}
+               --timeout 120
+               --access-logfile -
+               --error-logfile -"
 
   frontend:
     build:

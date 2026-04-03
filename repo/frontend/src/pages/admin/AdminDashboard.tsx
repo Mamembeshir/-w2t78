@@ -39,7 +39,7 @@ export function AdminDashboard() {
   const { data: auditData, isLoading: auditLoading } = useAuditLog()
 
   const totalUsers = usersData?.count ?? 0
-  const activeUsers = usersData?.results.filter(u => u.is_active).length ?? 0
+  const activeUsers = usersData?.results?.filter(u => u.is_active)?.length ?? 0
   const auditCount = auditData?.count ?? 0
 
   const userRows: UserRow[] = (usersData?.results ?? []).map(u => ({

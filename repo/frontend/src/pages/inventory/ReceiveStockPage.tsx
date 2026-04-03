@@ -42,7 +42,7 @@ export function ReceiveStockPage() {
   useEffect(() => { scanRef.current?.focus() }, [])
 
   function handleScanEnter(value: string) {
-    const match = itemsData?.results.find(
+    const match = itemsData?.results?.find(
       i => i.sku.toLowerCase() === value.toLowerCase()
     )
     if (match) {
@@ -55,7 +55,7 @@ export function ReceiveStockPage() {
     setScanValue(code)
     setCameraOpen(false)
     // Attempt direct match; user can press Enter if not found
-    const match = itemsData?.results.find(
+    const match = itemsData?.results?.find(
       i => i.sku.toLowerCase() === code.toLowerCase()
     )
     if (match) {
@@ -65,7 +65,7 @@ export function ReceiveStockPage() {
     scanRef.current?.focus()
   }
 
-  const selectedItem = itemsData?.results.find(i => i.id === selectedItemId)
+  const selectedItem = itemsData?.results?.find(i => i.id === selectedItemId)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

@@ -1,4 +1,5 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
+import { useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import type { NavItem, Role } from '@/types'
 import {
@@ -32,6 +33,8 @@ const NAV_ITEMS: NavItem[] = [
 interface SidebarProps {
   expanded: boolean
   onToggle: () => void
+  mobileOpen: boolean
+  onMobileClose: () => void
 }
 
 function hasAccess(item: NavItem, role: Role): boolean {
@@ -50,8 +53,16 @@ function NavGroup({ label, expanded }: { label: string; expanded: boolean }) {
   )
 }
 
-export function Sidebar({ expanded, onToggle }: SidebarProps) {
+export function Sidebar({ expanded, onToggle, mobileOpen, onMobileClose }: SidebarProps) {
   const { user } = useAuth()
+  const location = useLocation()
+
+  // Close mobile drawer on route change
+  useEffect(() => {
+    onMobileClose()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname])
+
   if (!user) return null
 
   const role = user.role
@@ -83,7 +94,9 @@ export function Sidebar({ expanded, onToggle }: SidebarProps) {
             )}
             <Icon className={`w-5 h-5 flex-shrink-0 transition-colors duration-150
               ${isActive ? 'text-primary-400' : 'text-text-disabled group-hover:text-text-muted'}`} />
-            {expanded && <span className="truncate">{item.label}</span>}
+            {/* On desktop: show label only when expanded. On mobile: always show label (drawer is full width) */}
+            <span className={`truncate lg:hidden`}>{item.label}</span>
+            {expanded && <span className="truncate hidden lg:block">{item.label}</span>}
           </>
         )}
       </NavLink>
@@ -91,77 +104,114 @@ export function Sidebar({ expanded, onToggle }: SidebarProps) {
   }
 
   return (
-    <aside
-      className={`
-        fixed left-0 top-0 bottom-0 z-sidebar flex flex-col
-        bg-surface-800 border-r border-surface-600/50
-        transition-[width] duration-200 ease-in-out
-        ${expanded ? 'w-60' : 'w-16'}
-      `.trim()}
-    >
-      {/* Brand */}
-      <div className={`
-        flex items-center gap-3 border-b border-surface-600/50 min-h-[3.5rem]
-        ${expanded ? 'px-4 py-3.5' : 'justify-center px-0 py-3.5'}
-      `}>
-        {/* Amber gradient logo mark */}
-        <div className="flex-shrink-0 w-8 h-8 rounded-xl bg-gradient-amber
-                        ring-1 ring-primary-500/30
-                        flex items-center justify-center">
-          <CubeIcon className="w-4.5 h-4.5 text-primary-400" />
-        </div>
-        {expanded && (
-          <div className="min-w-0">
+    <>
+      {/* Mobile backdrop overlay */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-[39] lg:hidden"
+          onClick={onMobileClose}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={`
+          fixed left-0 top-0 bottom-0 z-sidebar flex flex-col
+          bg-surface-800 border-r border-surface-600/50
+          transition-[width,transform] duration-200 ease-in-out
+          w-60
+          ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
+          lg:translate-x-0
+          ${expanded ? 'lg:w-60' : 'lg:w-16'}
+        `.trim()}
+      >
+        {/* Brand */}
+        <div className={`
+          flex items-center gap-3 border-b border-surface-600/50 min-h-[3.5rem]
+          ${expanded ? 'px-4 py-3.5' : 'lg:justify-center lg:px-0 px-4 py-3.5'}
+        `}>
+          {/* Amber gradient logo mark */}
+          <div className="flex-shrink-0 w-8 h-8 rounded-xl bg-gradient-amber
+                          ring-1 ring-primary-500/30
+                          flex items-center justify-center">
+            <CubeIcon className="w-4.5 h-4.5 text-primary-400" />
+          </div>
+          {/* Always show brand text on mobile drawer; on desktop only when expanded */}
+          <div className={`min-w-0 lg:hidden`}>
             <span className="text-sm font-bold text-text-primary tracking-tight block truncate">
               Warehouse Intel
             </span>
             <span className="text-2xs text-text-disabled uppercase tracking-widest">Operations</span>
           </div>
-        )}
-      </div>
+          {expanded && (
+            <div className="min-w-0 hidden lg:block">
+              <span className="text-sm font-bold text-text-primary tracking-tight block truncate">
+                Warehouse Intel
+              </span>
+              <span className="text-2xs text-text-disabled uppercase tracking-widest">Operations</span>
+            </div>
+          )}
+        </div>
 
-      {/* Nav */}
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-2 space-y-0.5">
-        {inventoryItems.length > 0 && (
-          <>
-            <NavGroup label="Inventory" expanded={expanded} />
-            {inventoryItems.map((i) => <NavEntry key={i.path} item={i} />)}
-          </>
-        )}
-        {crawlingItems.length > 0 && (
-          <>
-            <NavGroup label="Crawling" expanded={expanded} />
-            {crawlingItems.map((i) => <NavEntry key={i.path} item={i} />)}
-          </>
-        )}
-        {adminItems.length > 0 && (
-          <>
-            <NavGroup label="Admin" expanded={expanded} />
-            {adminItems.map((i) => <NavEntry key={i.path} item={i} />)}
-          </>
-        )}
-      </nav>
+        {/* Nav */}
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-2 space-y-0.5">
+          {inventoryItems.length > 0 && (
+            <>
+              {/* On mobile always show group label; on desktop only when expanded */}
+              <div className="lg:hidden">
+                <NavGroup label="Inventory" expanded={true} />
+              </div>
+              <div className="hidden lg:block">
+                <NavGroup label="Inventory" expanded={expanded} />
+              </div>
+              {inventoryItems.map((i) => <NavEntry key={i.path} item={i} />)}
+            </>
+          )}
+          {crawlingItems.length > 0 && (
+            <>
+              <div className="lg:hidden">
+                <NavGroup label="Crawling" expanded={true} />
+              </div>
+              <div className="hidden lg:block">
+                <NavGroup label="Crawling" expanded={expanded} />
+              </div>
+              {crawlingItems.map((i) => <NavEntry key={i.path} item={i} />)}
+            </>
+          )}
+          {adminItems.length > 0 && (
+            <>
+              <div className="lg:hidden">
+                <NavGroup label="Admin" expanded={true} />
+              </div>
+              <div className="hidden lg:block">
+                <NavGroup label="Admin" expanded={expanded} />
+              </div>
+              {adminItems.map((i) => <NavEntry key={i.path} item={i} />)}
+            </>
+          )}
+        </nav>
 
-      {/* Collapse toggle */}
-      <div className="p-2 border-t border-surface-600/50">
-        <button
-          onClick={onToggle}
-          className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl
-                      text-text-disabled hover:text-text-muted hover:bg-surface-700/70
-                      transition-all duration-150 min-h-touch
-                      ${!expanded && 'justify-center'}`}
-          aria-label={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
-        >
-          <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24"
-               stroke="currentColor" strokeWidth={1.5}>
-            {expanded
-              ? <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-              : <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-            }
-          </svg>
-          {expanded && <span className="text-xs">Collapse</span>}
-        </button>
-      </div>
-    </aside>
+        {/* Collapse toggle — desktop only */}
+        <div className="p-2 border-t border-surface-600/50 hidden lg:block">
+          <button
+            onClick={onToggle}
+            className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl
+                        text-text-disabled hover:text-text-muted hover:bg-surface-700/70
+                        transition-all duration-150 min-h-touch
+                        ${!expanded && 'justify-center'}`}
+            aria-label={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
+          >
+            <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                 stroke="currentColor" strokeWidth={1.5}>
+              {expanded
+                ? <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                : <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+              }
+            </svg>
+            {expanded && <span className="text-xs">Collapse</span>}
+          </button>
+        </div>
+      </aside>
+    </>
   )
 }

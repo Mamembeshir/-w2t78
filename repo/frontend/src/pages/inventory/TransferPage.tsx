@@ -36,8 +36,8 @@ export function TransferPage() {
   )
   const transfer = useTransferStock()
 
-  const selectedItem = itemsData?.results.find(i => i.id === selectedItemId)
-  const fromBalance = balancesData?.results.find(
+  const selectedItem = itemsData?.results?.find(i => i.id === selectedItemId)
+  const fromBalance = balancesData?.results?.find(
     b => b.item === selectedItemId && b.warehouse === fromWarehouseId && b.bin === fromBinId
   )
   const availableQty = fromBalance ? Number(fromBalance.quantity_on_hand) : null
@@ -175,11 +175,11 @@ export function TransferPage() {
           </div>
           <div className="flex justify-between py-2 border-b border-surface-600">
             <span className="text-text-muted">From</span>
-            <span>{warehousesData?.results.find(w => w.id === fromWarehouseId)?.code}</span>
+            <span>{warehousesData?.results?.find(w => w.id === fromWarehouseId)?.code}</span>
           </div>
           <div className="flex justify-between py-2 border-b border-surface-600">
             <span className="text-text-muted">To</span>
-            <span>{warehousesData?.results.find(w => w.id === toWarehouseId)?.code}</span>
+            <span>{warehousesData?.results?.find(w => w.id === toWarehouseId)?.code}</span>
           </div>
           <div className="flex justify-between py-2">
             <span className="text-text-muted">Quantity</span>

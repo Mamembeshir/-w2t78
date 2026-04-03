@@ -311,12 +311,26 @@ class InboxAPITests(TestCase):
 # ─────────────────────────────────────────────────────────────────────────────
 
 class DigestTaskTests(TestCase):
+    """
+    All tests pass a fixed `_now` to send_daily_digests() so they are never
+    sensitive to wall-clock timing or minute-boundary race conditions.
+
+    `fixed_now` is always today at 09:00 UTC so that `today_start` (derived
+    from `_now`) aligns with the real timestamps of notifications created in
+    each test.  `other_send_time` (18:00) is a distinct time guaranteed not to
+    match `fixed_now`, making "no digest" assertions deterministic.
+    """
+
     def setUp(self):
+        # Today at 09:00 UTC — deterministic reference clock for all tests.
+        self.fixed_now = timezone.now().replace(hour=9, minute=0, second=0, microsecond=0)
+        self.fixed_send_time = self.fixed_now.time()          # 09:00:00
+        self.other_send_time = self.fixed_now.replace(hour=18).time()  # 18:00:00
+
         self.user = create_user("digest_user")
-        DigestSchedule.objects.create(user=self.user)
+        DigestSchedule.objects.create(user=self.user, send_time=self.fixed_send_time)
 
     def test_digest_created_for_unread_notifications(self):
-        # Create some unread notifications
         for i in range(3):
             Notification.objects.create(
                 user=self.user,
@@ -325,7 +339,7 @@ class DigestTaskTests(TestCase):
                 body=".",
             )
 
-        result = send_daily_digests()
+        result = send_daily_digests(_now=self.fixed_now)
         self.assertEqual(result["digests_sent"], 1)
 
         digest = Notification.objects.filter(
@@ -336,7 +350,7 @@ class DigestTaskTests(TestCase):
         self.assertIn("Alert 0", digest.body)
 
     def test_digest_not_sent_when_no_unread(self):
-        result = send_daily_digests()
+        result = send_daily_digests(_now=self.fixed_now)
         self.assertEqual(result["digests_sent"], 0)
         self.assertFalse(
             Notification.objects.filter(
@@ -345,24 +359,80 @@ class DigestTaskTests(TestCase):
         )
 
     def test_digest_excludes_existing_digest_notifications(self):
-        # Existing DIGEST notification should not be included in the count
         Notification.objects.create(
             user=self.user,
             event_type=EventType.DIGEST,
             title="Yesterday's digest",
             body=".",
         )
-        # No non-digest unread notifications → should not send
-        result = send_daily_digests()
+        result = send_daily_digests(_now=self.fixed_now)
         self.assertEqual(result["digests_sent"], 0)
 
     def test_schedule_last_sent_updated(self):
         Notification.objects.create(
             user=self.user, event_type=EventType.SYSTEM, title="X", body="."
         )
-        send_daily_digests()
+        send_daily_digests(_now=self.fixed_now)
         schedule = DigestSchedule.objects.get(user=self.user)
         self.assertIsNotNone(schedule.last_sent_at)
+
+    # ── send_time filtering tests (regression for the "ignored send_time" bug) ──
+
+    def test_digest_only_sent_to_users_whose_send_time_matches_now(self):
+        """
+        User A: send_time=09:00 (matches fixed_now). User B: send_time=18:00 (does not match).
+        Only user A should receive a digest.
+        """
+        user_a = create_user("digest_time_a")
+        user_b = create_user("digest_time_b")
+        DigestSchedule.objects.create(user=user_a, send_time=self.fixed_send_time)
+        DigestSchedule.objects.create(user=user_b, send_time=self.other_send_time)
+
+        for user in (user_a, user_b):
+            Notification.objects.create(
+                user=user, event_type=EventType.SYSTEM, title="Alert", body="."
+            )
+
+        result = send_daily_digests(_now=self.fixed_now)
+
+        # user_a matches 09:00 and has notifications → 1 digest
+        # self.user (setUp) also matches 09:00 but has no notifications → 0 digests
+        self.assertEqual(result["digests_sent"], 1)
+        self.assertTrue(
+            Notification.objects.filter(user=user_a, event_type=EventType.DIGEST).exists()
+        )
+        self.assertFalse(
+            Notification.objects.filter(user=user_b, event_type=EventType.DIGEST).exists(),
+            "Digest must not fire for user_b whose send_time (18:00) does not match 09:00",
+        )
+
+    def test_digest_not_sent_twice_same_day(self):
+        """Running the task twice with the same _now sends only one digest."""
+        Notification.objects.create(
+            user=self.user, event_type=EventType.SYSTEM, title="Once", body="."
+        )
+
+        send_daily_digests(_now=self.fixed_now)
+        send_daily_digests(_now=self.fixed_now)  # excluded by last_sent_at guard
+
+        digest_count = Notification.objects.filter(
+            user=self.user, event_type=EventType.DIGEST
+        ).count()
+        self.assertEqual(digest_count, 1, "Digest must not be sent twice in the same day")
+
+    def test_user_with_non_matching_send_time_never_receives_digest(self):
+        """A schedule whose send_time (18:00) does not match fixed_now (09:00) receives nothing."""
+        user = create_user("digest_no_match")
+        DigestSchedule.objects.create(user=user, send_time=self.other_send_time)
+        Notification.objects.create(
+            user=user, event_type=EventType.SYSTEM, title="Pending", body="."
+        )
+
+        send_daily_digests(_now=self.fixed_now)
+
+        self.assertFalse(
+            Notification.objects.filter(user=user, event_type=EventType.DIGEST).exists()
+        )
 
 
 # ─────────────────────────────────────────────────────────────────────────────

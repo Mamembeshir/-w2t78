@@ -71,7 +71,7 @@ export function InventoryDashboard() {
         />
         <StatCard
           label="Active Balances"
-          value={String(allBalances?.results.filter(b => Number(b.quantity_on_hand) > 0).length ?? 0)}
+          value={String(allBalances?.results?.filter(b => Number(b.quantity_on_hand) > 0)?.length ?? 0)}
           sublabel="Locations with stock"
           icon={<ArrowUpTrayIcon className="w-5 h-5" />}
           accent="info"

@@ -1,18 +1,10 @@
 import { type FormEvent, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '@/hooks/useAuth'
+import { api } from '@/lib/api'
 import { useToast } from '@/hooks/useToast'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import type { Role } from '@/types'
-
-function getDashboardRoute(role: Role): string {
-  switch (role) {
-    case 'ADMIN':               return '/admin'
-    case 'INVENTORY_MANAGER':   return '/inventory'
-    case 'PROCUREMENT_ANALYST': return '/crawling'
-  }
-}
+import { extractMessage } from '@/lib/formErrors'
 
 function WarehouseIcon() {
   return (
@@ -25,31 +17,43 @@ function WarehouseIcon() {
   )
 }
 
-export function LoginPage() {
-  const { login } = useAuth()
+export function RegisterPage() {
   const toast = useToast()
   const navigate = useNavigate()
 
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [username, setUsername]             = useState('')
+  const [password, setPassword]             = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [email, setEmail]                   = useState('')
+  const [loading, setLoading]               = useState(false)
+  const [error, setError]                   = useState('')
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError('')
-    if (!username.trim()) { setError('Username is required.'); return }
-    if (!password)         { setError('Password is required.'); return }
+
+    if (!username.trim())    { setError('Username is required.'); return }
+    if (!password)           { setError('Password is required.'); return }
+    if (password !== confirmPassword) { setError('Passwords do not match.'); return }
+
     setLoading(true)
     try {
-      await login(username.trim(), password)
-      toast.success('Welcome back!')
-    } catch {
-      setError('Invalid username or password.')
+      await api.post('/api/auth/register/', {
+        username: username.trim(),
+        password,
+        ...(email.trim() ? { email: email.trim() } : {}),
+      })
+      toast.success('Account created — sign in to get started.')
+      navigate('/login', { replace: true })
+    } catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status
+      if (status === 403) {
+        setError('Self-registration is disabled. Contact your administrator to create an account.')
+      } else {
+        setError(extractMessage(err, 'Registration failed. Please check your details.'))
+      }
       setLoading(false)
-      return
     }
-    navigate('/', { replace: true })
   }
 
   return (
@@ -68,30 +72,29 @@ export function LoginPage() {
           </div>
         </div>
 
-        {/* Center headline */}
+        {/* Center content */}
         <div className="space-y-6">
           <div className="space-y-3">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary-500">
-              Operations Platform
+              Procurement Analyst Portal
             </p>
             <h1 className="text-4xl font-bold text-text-primary leading-[1.15] tracking-tight">
-              Every item.<br />
-              Every location.<br />
-              <span className="text-gradient-amber">Under control.</span>
+              Crawl smarter.<br />
+              Source faster.<br />
+              <span className="text-gradient-amber">Stay in control.</span>
             </h1>
           </div>
           <p className="text-text-muted text-base leading-relaxed max-w-xs">
-            Real-time inventory intelligence, procurement analytics, and operational
-            notifications — entirely offline and on your network.
+            Create your analyst account to access crawling rules, task monitoring,
+            and supplier intelligence — fully offline on your network.
           </p>
 
-          {/* Feature list */}
           <ul className="space-y-2.5">
             {[
-              'FIFO & moving-average costing per SKU',
-              'Multi-warehouse bin-level tracking',
-              'Barcode & camera scanning built-in',
-              'Crawl rules with canary deployments',
+              'Configure crawl sources and rule sets',
+              'Monitor tasks with real-time status',
+              'Visual request/response debugger',
+              'Canary deployments with auto-rollback',
             ].map((f) => (
               <li key={f} className="flex items-start gap-2.5">
                 <span className="mt-1 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-primary-500" />
@@ -121,8 +124,10 @@ export function LoginPage() {
         <div className="w-full max-w-sm">
           {/* Heading */}
           <div className="mb-8">
-            <h2 className="text-2xl font-bold text-text-primary tracking-tight">Sign in</h2>
-            <p className="mt-1.5 text-sm text-text-muted">Enter your credentials to continue</p>
+            <h2 className="text-2xl font-bold text-text-primary tracking-tight">Create account</h2>
+            <p className="mt-1.5 text-sm text-text-muted">
+              Analyst access · password must be 10+ characters
+            </p>
           </div>
 
           {/* Form */}
@@ -140,12 +145,33 @@ export function LoginPage() {
             />
 
             <Input
+              label="Email"
+              type="email"
+              value={email}
+              onChange={setEmail}
+              placeholder="you@example.com"
+              autoComplete="email"
+              disabled={loading}
+            />
+
+            <Input
               label="Password"
               type="password"
               value={password}
               onChange={setPassword}
               placeholder="••••••••••"
-              autoComplete="current-password"
+              autoComplete="new-password"
+              required
+              disabled={loading}
+            />
+
+            <Input
+              label="Confirm Password"
+              type="password"
+              value={confirmPassword}
+              onChange={setConfirmPassword}
+              placeholder="••••••••••"
+              autoComplete="new-password"
               required
               disabled={loading}
             />
@@ -167,15 +193,15 @@ export function LoginPage() {
               loading={loading}
               className="w-full mt-1"
             >
-              Sign in
+              Create account
             </Button>
           </form>
 
-          {/* Create account link */}
+          {/* Sign in link */}
           <p className="mt-6 text-center text-sm text-text-muted">
-            Procurement analyst?{' '}
-            <Link to="/register" className="text-primary-400 hover:text-primary-300 font-medium transition-colors">
-              Create account
+            Already have an account?{' '}
+            <Link to="/login" className="text-primary-400 hover:text-primary-300 font-medium transition-colors">
+              Sign in
             </Link>
           </p>
 
@@ -189,5 +215,3 @@ export function LoginPage() {
     </div>
   )
 }
-
-export { getDashboardRoute }

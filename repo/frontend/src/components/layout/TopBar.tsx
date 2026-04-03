@@ -9,6 +9,7 @@ import { BellIcon, ArrowRightOnRectangleIcon } from '@/components/ui/icons'
 
 interface TopBarProps {
   sidebarWidth: number
+  onMobileMenuOpen: () => void
 }
 
 function SunIcon({ className }: { className?: string }) {
@@ -29,7 +30,15 @@ function MoonIcon({ className }: { className?: string }) {
   )
 }
 
-export function TopBar({ sidebarWidth }: TopBarProps) {
+function HamburgerIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+    </svg>
+  )
+}
+
+export function TopBar({ sidebarWidth, onMobileMenuOpen }: TopBarProps) {
   const { user, logout } = useAuth()
   const toast = useToast()
   const navigate = useNavigate()
@@ -62,18 +71,31 @@ export function TopBar({ sidebarWidth }: TopBarProps) {
 
   return (
     <header
-      className="fixed top-0 right-0 z-topbar flex items-center justify-between px-5
+      className="fixed top-0 right-0 z-topbar flex items-center justify-between px-3 sm:px-5
                  bg-surface-800/95 backdrop-blur-sm
                  border-b border-surface-600/50 h-14
                  after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px
                  after:bg-gradient-to-r after:from-transparent after:via-primary-500/30 after:to-transparent"
       style={{ left: sidebarWidth }}
     >
-      {/* Left — empty slot for breadcrumbs/page title if needed */}
-      <div />
+      {/* Left — hamburger on mobile, empty on desktop */}
+      <button
+        type="button"
+        onClick={onMobileMenuOpen}
+        className="p-2 rounded-xl text-text-muted hover:text-primary-400
+                   hover:bg-primary-500/10 transition-all duration-200
+                   min-h-touch min-w-touch flex items-center justify-center
+                   lg:hidden"
+        aria-label="Open navigation menu"
+      >
+        <HamburgerIcon className="w-5 h-5" />
+      </button>
+
+      {/* Desktop spacer */}
+      <div className="hidden lg:block" />
 
       {/* Right — theme toggle + notifications + user */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1">
 
         {/* Theme toggle */}
         <button
@@ -115,7 +137,7 @@ export function TopBar({ sidebarWidth }: TopBarProps) {
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setUserMenuOpen((v) => !v)}
-            className="flex items-center gap-2.5 pl-1.5 pr-3 py-1.5 rounded-xl
+            className="flex items-center gap-2 pl-1.5 pr-2 sm:pr-3 py-1.5 rounded-xl
                        hover:bg-primary-500/10 transition-all duration-200 min-h-touch"
             aria-expanded={userMenuOpen}
             aria-haspopup="true"

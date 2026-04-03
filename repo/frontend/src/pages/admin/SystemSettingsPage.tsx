@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { PageWrapper } from '@/components/layout/PageWrapper'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { useToast } from '@/components/ui/Toast'
+import { useToast } from '@/hooks/useToast'
 import { api } from '@/lib/api'
 
 interface SettingsForm {

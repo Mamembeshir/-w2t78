@@ -57,13 +57,13 @@ export function CycleCountPage() {
 
   useEffect(() => { scanRef.current?.focus() }, [])
 
-  const selectedItem = itemsData?.results.find(i => i.id === selectedItemId)
+  const selectedItem = itemsData?.results?.find(i => i.id === selectedItemId)
 
   function handleCameraDetected(code: string) {
     setItemSearch(code)
     setSelectedItemId(null)
     setCameraOpen(false)
-    const match = itemsData?.results.find(i => i.sku.toLowerCase() === code.toLowerCase())
+    const match = itemsData?.results?.find(i => i.sku.toLowerCase() === code.toLowerCase())
     if (match) { setSelectedItemId(match.id); setItemSearch(match.sku) }
     scanRef.current?.focus()
   }
@@ -170,7 +170,7 @@ export function CycleCountPage() {
                     value={itemSearch}
                     onChange={v => { setItemSearch(v); setSelectedItemId(null) }}
                     onKeyDown={e => { if (e.key === 'Enter') {
-                      const match = itemsData?.results.find(i => i.sku.toLowerCase() === itemSearch.toLowerCase())
+                      const match = itemsData?.results?.find(i => i.sku.toLowerCase() === itemSearch.toLowerCase())
                       if (match) { setSelectedItemId(match.id); setItemSearch(match.sku) }
                     }}}
                     placeholder="Scan or type item…"

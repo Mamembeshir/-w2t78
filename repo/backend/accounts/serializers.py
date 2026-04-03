@@ -75,3 +75,34 @@ class PasswordResetSerializer(serializers.Serializer):
         style={"input_type": "password"},
         validators=[validate_password],
     )
+
+
+class RegisterSerializer(serializers.ModelSerializer):
+    """
+    Public self-registration.  Always creates a PROCUREMENT_ANALYST account.
+    Role is fixed server-side and cannot be supplied by the client.
+    """
+
+    password = serializers.CharField(
+        write_only=True,
+        style={"input_type": "password"},
+        validators=[validate_password],
+    )
+
+    class Meta:
+        model = User
+        fields = ("username", "password", "email", "first_name", "last_name")
+
+    def create(self, validated_data):
+        from .models import Role
+        password = validated_data.pop("password")
+        user = User(
+            **validated_data,
+            role=Role.PROCUREMENT_ANALYST,
+            is_active=True,
+            is_staff=False,
+            is_superuser=False,
+        )
+        user.set_password(password)
+        user.save()
+        return user

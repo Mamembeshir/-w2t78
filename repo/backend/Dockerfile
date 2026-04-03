@@ -32,6 +32,7 @@ EXPOSE 8000
 # Default: run Gunicorn (overridden in docker-compose for worker/beat services)
 # Worker count: 2x CPU + 1 (adjust via GUNICORN_WORKERS env var)
 CMD ["sh", "-c", "python manage.py migrate --noinput && \
+     python manage.py seed_users && \
      gunicorn config.wsgi:application \
        --bind 0.0.0.0:8000 \
        --workers ${GUNICORN_WORKERS:-4} \

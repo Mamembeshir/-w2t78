@@ -3,7 +3,9 @@ import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { ProtectedRoute } from './ProtectedRoute'
 import { AppShell } from '@/components/layout/AppShell'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { ErrorBoundary, RouteErrorPage } from '@/components/ui/ErrorBoundary'
 import { LoginPage, getDashboardRoute } from '@/pages/auth/LoginPage'
+import { RegisterPage } from '@/pages/auth/RegisterPage'
 import { useAuth } from '@/hooks/useAuth'
 
 // ── Lazy-loaded pages ─────────────────────────────────────────────────────────
@@ -26,36 +28,47 @@ const InboxPage           = lazy(() => import('@/pages/notifications/InboxPage')
 const SubscriptionsPage   = lazy(() => import('@/pages/notifications/SubscriptionsPage').then((m) => ({ default: m.SubscriptionsPage })))
 const NotFoundPage        = lazy(() => import('@/pages/common/NotFoundPage').then((m) => ({ default: m.NotFoundPage })))
 
+/** Suspense + ErrorBoundary wrapper for every lazy page */
 function Lazy({ children }: { children: React.ReactNode }) {
-  return <Suspense fallback={<LoadingSpinner fullPage />}>{children}</Suspense>
+  return (
+    <ErrorBoundary>
+      <Suspense fallback={<LoadingSpinner fullPage />}>
+        {children}
+      </Suspense>
+    </ErrorBoundary>
+  )
 }
 
 export const router = createBrowserRouter([
   // ── Public ─────────────────────────────────────────────────────────────────
-  { path: '/login', element: <LoginPage /> },
+  { path: '/login',    element: <LoginPage />,    errorElement: <RouteErrorPage /> },
+  { path: '/register', element: <RegisterPage />, errorElement: <RouteErrorPage /> },
 
   // ── Protected root ─────────────────────────────────────────────────────────
   {
     element: <ProtectedRoute />,
+    errorElement: <RouteErrorPage />,
     children: [
-      // Root redirect → role-appropriate dashboard (handled by AuthenticatedIndex)
+      // Root redirect → role-appropriate dashboard
       { index: true, element: <AuthenticatedIndex /> },
 
       // App shell wraps all authenticated pages
       {
         element: <AppShell />,
+        errorElement: <RouteErrorPage />,
         children: [
           // ── Inventory (ADMIN + INVENTORY_MANAGER) ──────────────────────────
           {
             path: 'inventory',
             element: <ProtectedRoute allowedRoles={['ADMIN', 'INVENTORY_MANAGER']} />,
+            errorElement: <RouteErrorPage />,
             children: [
-              { index: true,          element: <Lazy><InventoryDashboard /></Lazy> },
-              { path: 'receive',      element: <Lazy><ReceiveStockPage /></Lazy> },
-              { path: 'issue',        element: <Lazy><IssueStockPage /></Lazy> },
-              { path: 'transfer',     element: <Lazy><TransferPage /></Lazy> },
-              { path: 'cycle',        element: <Lazy><CycleCountPage /></Lazy> },
-              { path: 'search',       element: <Lazy><InventorySearchPage /></Lazy> },
+              { index: true,     element: <Lazy><InventoryDashboard /></Lazy> },
+              { path: 'receive', element: <Lazy><ReceiveStockPage /></Lazy> },
+              { path: 'issue',   element: <Lazy><IssueStockPage /></Lazy> },
+              { path: 'transfer',element: <Lazy><TransferPage /></Lazy> },
+              { path: 'cycle',   element: <Lazy><CycleCountPage /></Lazy> },
+              { path: 'search',  element: <Lazy><InventorySearchPage /></Lazy> },
             ],
           },
 
@@ -63,12 +76,13 @@ export const router = createBrowserRouter([
           {
             path: 'crawling',
             element: <ProtectedRoute allowedRoles={['ADMIN', 'PROCUREMENT_ANALYST']} />,
+            errorElement: <RouteErrorPage />,
             children: [
-              { index: true,          element: <Lazy><CrawlingDashboard /></Lazy> },
-              { path: 'sources',      element: <Lazy><SourcesPage /></Lazy> },
-              { path: 'rules',        element: <Lazy><RuleVersionEditorPage /></Lazy> },
-              { path: 'tasks',        element: <Lazy><TaskMonitorPage /></Lazy> },
-              { path: 'debugger',     element: <Lazy><RequestDebuggerPage /></Lazy> },
+              { index: true,       element: <Lazy><CrawlingDashboard /></Lazy> },
+              { path: 'sources',   element: <Lazy><SourcesPage /></Lazy> },
+              { path: 'rules',     element: <Lazy><RuleVersionEditorPage /></Lazy> },
+              { path: 'tasks',     element: <Lazy><TaskMonitorPage /></Lazy> },
+              { path: 'debugger',  element: <Lazy><RequestDebuggerPage /></Lazy> },
             ],
           },
 
@@ -76,11 +90,12 @@ export const router = createBrowserRouter([
           {
             path: 'admin',
             element: <ProtectedRoute allowedRoles={['ADMIN']} />,
+            errorElement: <RouteErrorPage />,
             children: [
-              { index: true,          element: <Lazy><AdminDashboard /></Lazy> },
-              { path: 'users',        element: <Lazy><UserManagementPage /></Lazy> },
-              { path: 'audit',        element: <Lazy><AuditLogPage /></Lazy> },
-              { path: 'settings',     element: <Lazy><SystemSettingsPage /></Lazy> },
+              { index: true,      element: <Lazy><AdminDashboard /></Lazy> },
+              { path: 'users',    element: <Lazy><UserManagementPage /></Lazy> },
+              { path: 'audit',    element: <Lazy><AuditLogPage /></Lazy> },
+              { path: 'settings', element: <Lazy><SystemSettingsPage /></Lazy> },
             ],
           },
 

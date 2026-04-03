@@ -148,7 +148,7 @@ export function AuditLogPage() {
 
       <DataTable<AuditRow>
         columns={COLUMNS}
-        rows={rows}
+        data={rows}
         rowKey="id"
         isLoading={isLoading}
         emptyMessage="No audit log entries match the current filters."

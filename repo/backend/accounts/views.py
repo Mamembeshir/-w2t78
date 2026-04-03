@@ -29,7 +29,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import User
 from .permissions import IsAdmin
-from .serializers import PasswordResetSerializer, UserSerializer
+from .serializers import PasswordResetSerializer, RegisterSerializer, UserSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -134,6 +134,44 @@ class MeView(APIView):
                 "last_login": user.last_login,
                 "date_joined": user.date_joined,
             }
+        )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Self-registration (Procurement Analyst only)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class RegisterView(APIView):
+    """
+    POST /api/auth/register/
+
+    Creates a PROCUREMENT_ANALYST account.  Role is fixed server-side.
+    Only available when REGISTRATION_OPEN=true is set in the environment;
+    returns 403 otherwise.  Rate-limited to 3 attempts per hour per IP.
+
+    Body: { "username": "...", "password": "...", "email": "..." }
+    Returns: 201 { "id": ..., "username": "...", "role": "PROCUREMENT_ANALYST" }
+    """
+
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "register"
+
+    def post(self, request):
+        from django.conf import settings as django_settings
+        if not getattr(django_settings, "REGISTRATION_OPEN", False):
+            return Response(
+                {"detail": "Self-registration is disabled. Contact your administrator."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = RegisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        logger.info("New analyst account registered: '%s'.", user.username)
+        return Response(
+            {"id": user.pk, "username": user.username, "role": user.role},
+            status=status.HTTP_201_CREATED,
         )
 
 

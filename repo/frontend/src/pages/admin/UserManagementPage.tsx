@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Modal } from '@/components/ui/Modal'
-import { useToast } from '@/components/ui/Toast'
+import { useToast } from '@/hooks/useToast'
 import { useUsers, useCreateUser, useUpdateUser } from '@/hooks/useAdmin'
 import type { UserRecord } from '@/hooks/useAdmin'
 import type { Column } from '@/types'
@@ -123,7 +123,7 @@ export function UserManagementPage() {
       header: 'Actions',
       sortable: false,
       render: (_, row) => {
-        const user = data?.results.find(u => String(u.id) === row.id)
+        const user = data?.results?.find(u => String(u.id) === row.id)
         if (!user) return null
         return (
           <div className="flex gap-2">
@@ -231,7 +231,7 @@ export function UserManagementPage() {
     >
       <DataTable<UserRow>
         columns={COLUMNS}
-        rows={rows}
+        data={rows}
         rowKey="id"
         isLoading={isLoading}
         emptyMessage="No users found."
