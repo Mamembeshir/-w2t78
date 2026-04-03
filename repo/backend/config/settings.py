@@ -273,6 +273,16 @@ CELERY_BEAT_SCHEDULE = {
         "task": "crawling.promote_waiting_tasks",
         "schedule": 5.0,
     },
+    # Daily notification digest at 18:00 UTC
+    "send-daily-digests": {
+        "task": "notifications.send_daily_digests",
+        "schedule": crontab(hour=18, minute=0),
+    },
+    # Retry queued outbound messages every 5 minutes
+    "send-outbound-queued": {
+        "task": "notifications.send_outbound_queued",
+        "schedule": crontab(minute="*/5"),
+    },
 }
 
 # ─────────────────────────────────────────────────────────────────────────────

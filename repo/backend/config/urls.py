@@ -40,5 +40,5 @@ urlpatterns = [
     # Crawling — Phase 6
     path("api/crawl/", include("crawling.urls")),
     # Notifications — Phase 7
-    # path("api/notifications/", include("notifications.urls")),
+    path("api/notifications/", include("notifications.urls")),
 ]
