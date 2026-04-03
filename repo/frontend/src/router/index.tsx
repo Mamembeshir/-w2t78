@@ -21,9 +21,11 @@ const RequestDebuggerPage    = lazy(() => import('@/pages/crawling/RequestDebugg
 const AdminDashboard        = lazy(() => import('@/pages/admin/AdminDashboard').then((m) => ({ default: m.AdminDashboard })))
 const UserManagementPage    = lazy(() => import('@/pages/admin/UserManagementPage').then((m) => ({ default: m.UserManagementPage })))
 const AuditLogPage          = lazy(() => import('@/pages/admin/AuditLogPage').then((m) => ({ default: m.AuditLogPage })))
+const SystemSettingsPage    = lazy(() => import('@/pages/admin/SystemSettingsPage').then((m) => ({ default: m.SystemSettingsPage })))
 const InboxPage           = lazy(() => import('@/pages/notifications/InboxPage').then((m) => ({ default: m.InboxPage })))
 const SubscriptionsPage   = lazy(() => import('@/pages/notifications/SubscriptionsPage').then((m) => ({ default: m.SubscriptionsPage })))
 const NotImplementedPage  = lazy(() => import('@/pages/common/NotImplementedPage').then((m) => ({ default: m.NotImplementedPage })))
+const NotFoundPage        = lazy(() => import('@/pages/common/NotFoundPage').then((m) => ({ default: m.NotFoundPage })))
 
 function Lazy({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<LoadingSpinner fullPage />}>{children}</Suspense>
@@ -79,7 +81,7 @@ export const router = createBrowserRouter([
               { index: true,          element: <Lazy><AdminDashboard /></Lazy> },
               { path: 'users',        element: <Lazy><UserManagementPage /></Lazy> },
               { path: 'audit',        element: <Lazy><AuditLogPage /></Lazy> },
-              { path: 'settings',     element: <Lazy><NotImplementedPage /></Lazy> },
+              { path: 'settings',     element: <Lazy><SystemSettingsPage /></Lazy> },
             ],
           },
 
@@ -88,7 +90,7 @@ export const router = createBrowserRouter([
           { path: 'notifications/settings', element: <Lazy><SubscriptionsPage /></Lazy> },
 
           // ── Catch-all ──────────────────────────────────────────────────────
-          { path: '*', element: <Lazy><NotImplementedPage /></Lazy> },
+          { path: '*', element: <Lazy><NotFoundPage /></Lazy> },
         ],
       },
     ],

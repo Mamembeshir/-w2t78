@@ -33,17 +33,35 @@ def flag_slow_moving_items():
     flagged = 0
     cleared = 0
 
+    newly_flagged_items = []
+
     for item in Item.objects.filter(deleted_at__isnull=True, is_active=True):
         if item.id not in active_skus:
             if item.slow_moving_flagged_at is None:
                 item.slow_moving_flagged_at = timezone.now()
                 item.save(update_fields=["slow_moving_flagged_at"])
+                newly_flagged_items.append(item)
                 flagged += 1
         else:
             if item.slow_moving_flagged_at is not None:
                 item.slow_moving_flagged_at = None
                 item.save(update_fields=["slow_moving_flagged_at"])
                 cleared += 1
+
+    # Dispatch SLOW_MOVING_STOCK notification for each newly flagged item
+    if newly_flagged_items:
+        from notifications.dispatcher import dispatch_event
+        from notifications.models import EventType
+
+        for item in newly_flagged_items:
+            dispatch_event(
+                EventType.SLOW_MOVING_STOCK,
+                title=f"Slow-moving stock: {item.sku}",
+                body=(
+                    f"{item.name} has had no issues in the last 90 days "
+                    f"and has been flagged as slow-moving."
+                ),
+            )
 
     return {"flagged": flagged, "cleared": cleared}
 

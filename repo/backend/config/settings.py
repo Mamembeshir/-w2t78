@@ -239,6 +239,19 @@ CORS_ALLOW_ALL_ORIGINS = False  # explicit: never wildcard
 # ─────────────────────────────────────────────────────────────────────────────
 FIELD_ENCRYPTION_KEY = os.environ.get("FIELD_ENCRYPTION_KEY", "")
 
+# Warn loudly if the encryption key is missing outside of test runs.
+# Encrypted fields (supplier credentials, crawl rule secrets) will silently
+# produce corrupted ciphertext when the key is empty or invalid.
+if not _TESTING and not FIELD_ENCRYPTION_KEY:
+    import warnings
+    warnings.warn(
+        "FIELD_ENCRYPTION_KEY is not set. Encrypted model fields (supplier credentials, "
+        "crawl rule request_headers) will not be protected at rest. "
+        "Set FIELD_ENCRYPTION_KEY in your environment before running in production.",
+        RuntimeWarning,
+        stacklevel=2,
+    )
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Celery — local Redis broker/backend only
 # ─────────────────────────────────────────────────────────────────────────────

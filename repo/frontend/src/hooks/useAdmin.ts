@@ -73,7 +73,7 @@ export function useUpdateUser() {
   })
 }
 
-export function useAuditLog(params?: { model?: string; action?: string; from_date?: string }) {
+export function useAuditLog(params?: { model?: string; action?: string; from_date?: string; to_date?: string; page?: number }) {
   return useQuery({
     queryKey: ['audit', params],
     queryFn: () =>
