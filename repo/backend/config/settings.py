@@ -113,7 +113,7 @@ DATABASES = {
         "ENGINE": "django.db.backends.mysql",
         "NAME": _DB_NAME,
         "USER": os.environ.get("DB_USER", "warehouse_user"),
-        "PASSWORD": os.environ.get("DB_PASSWORD", ""),
+        "PASSWORD": os.environ.get("DB_PASSWORD", "warehouse_pass"),
         "HOST": os.environ.get("DB_HOST", "db"),
         "PORT": os.environ.get("DB_PORT", "3306"),
         "OPTIONS": {
