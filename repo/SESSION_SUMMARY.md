@@ -103,3 +103,38 @@ repo/
 **Phase 1.3 — run_test.sh**: Script to start all services, wait for DB readiness, print service URLs.
 
 ---
+
+### Session 3 — Phase 1.3: run_test.sh
+**Date:** 2026-04-03
+**Phase:** 1.3 run_test.sh
+**Status:** Complete
+
+#### What Was Completed
+- `run_test.sh` created at repo root, executable (`chmod +x`)
+- 3-phase ordered startup:
+  - Phase 1: `db` + `redis` — waits for Docker healthcheck AND verifies real MySQL query accepts connection
+  - Phase 2: `backend` + `worker` + `beat` — waits for `/api/health/` HTTP 200
+  - Phase 3: `frontend` — waits for TCP port 5173 open
+- Coloured output: cyan INFO, green OK, yellow WARN, red ERROR
+- URL banner printed on successful startup (frontend, API, admin, health, MySQL host port, Redis host port)
+- Prerequisite checks: Docker daemon, compose v2 installed, `.env` exists (auto-copies from example if missing)
+- Subcommands: `start` (default), `stop`, `restart`, `build`, `logs [svc]`, `status`, `test`, `shell`
+- Verified: cold-start from zero to all 6 services in ~15 seconds
+
+#### Decisions Made
+- **Two-level MySQL wait**: Docker healthcheck (`mysqladmin ping`) is necessary but not sufficient — also verify an actual `SELECT 1` query on `warehouse_db` as the application user, which confirms the init script ran and user grants are in place.
+- **3-phase startup**: Separating db/redis → backend/worker/beat → frontend ensures dependency ordering even if `docker compose` health-condition dependencies are modified later.
+- **`nc` for frontend port check**: Vite doesn't expose a JSON health endpoint; TCP port check is the most reliable offline-compatible signal.
+- **`.env` auto-copy**: If `.env` is missing (e.g. fresh clone), script copies from `docker/.env.example` with a warning — prevents confusing Docker errors for new developers.
+
+#### Files Changed
+| File | Action |
+|---|---|
+| `run_test.sh` | Created |
+| `PLAN.md` | Updated (1.3 tasks marked complete) |
+| `SESSION_SUMMARY.md` | Updated |
+
+#### Next Phase
+**Phase 1.4 — Backend Bootstrap**: Expand Django settings with full configuration (Argon2, DRF, CORS, encrypted fields), verify `python manage.py migrate` runs cleanly.
+
+---

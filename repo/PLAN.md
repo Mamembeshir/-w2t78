@@ -26,11 +26,12 @@
 - [x] Verify all containers start cleanly with `docker compose up` (all 6 running, `/api/health/` → 200)
 
 ### 1.3 run_test.sh
-- [ ] Create `run_test.sh` at repo root
-- [ ] Script starts DB + Redis + backend + frontend in correct order
-- [ ] Script waits for MySQL readiness before starting Django
-- [ ] Script prints service URLs on startup (backend, frontend, admin)
-- [ ] Make `run_test.sh` executable (`chmod +x`)
+- [x] Create `run_test.sh` at repo root
+- [x] Script starts DB + Redis + backend + frontend in correct order (3-phase startup)
+- [x] Script waits for MySQL readiness before starting Django (Docker healthcheck + query verify)
+- [x] Script prints service URLs on startup (frontend, backend, admin, health, MySQL, Redis)
+- [x] Make `run_test.sh` executable (`chmod +x`)
+- [x] Subcommands: start, stop, restart, build, logs [svc], status, test, shell
 
 ### 1.4 Backend Bootstrap
 - [ ] Initialize Django 5 project inside `backend/`
@@ -473,7 +474,7 @@
 
 | Phase | Status | Tasks Done | Tasks Total |
 |---|---|---|---|
-| Phase 1: Setup + Docker | [-] In Progress | 11 | 17 |
+| Phase 1: Setup + Docker | [-] In Progress | 17 | 18 |
 | Phase 2: Backend Models | [ ] Pending | 0 | 29 |
 | Phase 3: Auth & RBAC | [ ] Pending | 0 | 11 |
 | Phase 4: Frontend Core | [ ] Pending | 0 | 22 |
@@ -482,4 +483,4 @@
 | Phase 7: Notifications | [ ] Pending | 0 | 21 |
 | Phase 8: Testing | [ ] Pending | 0 | 21 |
 | Phase 9: Polish | [ ] Pending | 0 | 20 |
-| **Total** | | **11** | **210** |
+| **Total** | | **17** | **211** |
