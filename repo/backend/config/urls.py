@@ -31,8 +31,8 @@ def health(request):
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/health/", health, name="health"),
-    # Auth endpoints — Phase 3
-    # path("api/auth/", include("accounts.urls")),
+    # Auth + User management (Phase 3)
+    path("api/", include("accounts.urls")),
     # Inventory — Phase 5
     # path("api/", include("inventory.urls")),
     # Crawling — Phase 6

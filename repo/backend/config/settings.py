@@ -68,8 +68,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    # Audit middleware added in Phase 3
-    # "audit.middleware.AuditLogMiddleware",
+    # Audit middleware — logs every mutating authenticated request to AuditLog
+    "audit.middleware.AuditLogMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"

@@ -297,3 +297,66 @@ All 27 tasks across 2.1–2.9 done. 36 tables in warehouse_db, health endpoint O
 **Phase 3 — Authentication & RBAC**: JWT login/logout/refresh endpoints, IsAdmin/IsInventoryManager/IsProcurementAnalyst permission classes, audit middleware, user management API.
 
 ---
+
+### Session 7 — Phase 3: Authentication & RBAC
+**Date:** 2026-04-03
+**Phase:** 3.1–3.4 Authentication & RBAC
+**Status:** Complete ✓
+
+#### What Was Completed
+- **`accounts/permissions.py`** — 4 DRF permission classes:
+  - `IsAdmin` — ADMIN role only
+  - `IsInventoryManager` — ADMIN or INVENTORY_MANAGER
+  - `IsProcurementAnalyst` — ADMIN or PROCUREMENT_ANALYST
+  - `IsAdminOrReadOnly` — ADMIN writes; any authenticated user reads (GET/HEAD/OPTIONS)
+- **`accounts/serializers.py`** — `UserSerializer` (password write-only, create calls `set_password()`, update pops password), `PasswordResetSerializer`
+- **`accounts/views.py`** — 4 views:
+  - `LoginView(APIView)` — AllowAny; authenticates, returns `{access, refresh, user:{id,username,role,email}}`
+  - `LogoutView(APIView)` — blacklists refresh token via `RefreshToken.blacklist()`; idempotent (returns 204 even if already blacklisted)
+  - `MeView(APIView)` — returns current authenticated user's full profile
+  - `UserViewSet(ModelViewSet)` — IsAdmin only; CRUD minus DELETE + `reset-password` custom action; `set_password()` used on both create and reset
+- **`accounts/urls.py`** — DRF router + URL patterns; exposes `POST /api/auth/login/`, `POST /api/auth/logout/`, `POST /api/auth/refresh/`, `GET /api/auth/me/`, full `/api/users/` CRUD
+- **`audit/middleware.py`** — `AuditLogMiddleware`:
+  - Runs post-response; only fires for authenticated mutating requests
+  - Skips `/api/auth/`, `/api/health/`, `/admin/`
+  - Extracts `model_name` + `object_id` from URL path
+  - Masks secrets in request body via `config.logging_filters._mask()` before writing to `AuditLog`
+  - Never raises — all errors swallowed to protect the request pipeline
+- **`config/urls.py`** — `path("api/", include("accounts.urls"))` uncommented
+- **`config/settings.py`** — `audit.middleware.AuditLogMiddleware` added to MIDDLEWARE
+- **`accounts/tests.py`** — 39 real-database tests (no mocking); all pass:
+  - `LoginTests` (6) — valid/invalid credentials, inactive user, Argon2 hash verification
+  - `RefreshTokenTests` (2) — refresh issues new token, invalid token rejected
+  - `LogoutTests` (4) — 204 on logout, refresh fails after logout, idempotent, unauthenticated rejected
+  - `MeViewTests` (2) — returns current user, unauthenticated rejected
+  - `PermissionTests` (4) — unauthenticated/inventory-manager/procurement-analyst all rejected from admin endpoints
+  - `UserManagementTests` (15) — create/list/retrieve/patch/put/delete(405)/reset-password + Argon2 verification
+  - `AuditMiddlewareTests` (5) — create logs CREATE entry, patch logs UPDATE, password masked, auth skipped, unauthenticated skipped
+
+#### Decisions Made
+- **`/api/auth/me/` added** (not in PLAN.md 3.1): Phase 4 frontend needs to restore session after page reload without decoding the JWT. A `MeView` is the clean way to do this.
+- **DELETE disabled on `UserViewSet`**: `http_method_names` excludes `delete`. Users are deactivated via `PATCH is_active=false` — no hard delete of user accounts.
+- **Logout idempotent on `TokenError`**: If the refresh token is already blacklisted or malformed, `LogoutView` catches `TokenError` and returns 204 anyway. No error leakage.
+- **Audit middleware deferred import**: `audit.models.AuditLog` is imported inside `_write_log()` to avoid circular imports at Django startup (middleware is registered before apps are fully loaded).
+- **`--keepdb` for tests**: `warehouse_db_test` is pre-created by `init.sh`. Tests use `manage.py test --keepdb` to avoid `CREATE DATABASE` requiring root privilege confirmation.
+
+#### Files Changed
+| File | Action |
+|---|---|
+| `backend/accounts/permissions.py` | Created |
+| `backend/accounts/serializers.py` | Created |
+| `backend/accounts/views.py` | Written |
+| `backend/accounts/urls.py` | Created |
+| `backend/accounts/tests.py` | Written (39 tests) |
+| `backend/audit/middleware.py` | Created |
+| `backend/config/urls.py` | Updated (accounts.urls included) |
+| `backend/config/settings.py` | Updated (AuditLogMiddleware enabled) |
+| `PLAN.md` | Updated (Phase 3 marked complete) |
+
+#### Phase 3 Complete ✓
+39/39 tests pass (real MySQL DB, no mocks). All auth and permission flows verified.
+
+#### Next Phase
+**Phase 4 — Frontend Core Layout + Premium UI**: AppShell, Sidebar (role-aware), TopBar, premium UI components, React Router with ProtectedRoute, Login page, role-based navigation.
+
+---

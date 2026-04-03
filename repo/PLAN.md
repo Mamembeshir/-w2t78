@@ -116,27 +116,27 @@
 ## Phase 3: Authentication & RBAC
 
 ### 3.1 Auth API
-- [ ] `POST /api/auth/login/` — validates credentials, returns JWT access + refresh tokens
-- [ ] `POST /api/auth/logout/` — blacklists refresh token
-- [ ] `POST /api/auth/refresh/` — issues new access token
-- [ ] Use `djangorestframework-simplejwt` with short-lived access tokens (15 min) and longer refresh (8 hours)
-- [ ] Store refresh tokens server-side for blacklisting
+- [x] `POST /api/auth/login/` — validates credentials, returns JWT access + refresh tokens
+- [x] `POST /api/auth/logout/` — blacklists refresh token
+- [x] `POST /api/auth/refresh/` — issues new access token
+- [x] Use `djangorestframework-simplejwt` with short-lived access tokens (15 min) and longer refresh (8 hours)
+- [x] Store refresh tokens server-side for blacklisting
 
 ### 3.2 Permission Classes
-- [ ] Create `IsAdmin`, `IsInventoryManager`, `IsProcurementAnalyst` DRF permission classes
-- [ ] Create `IsAdminOrReadOnly` for reference data endpoints
-- [ ] Apply permissions to all views
+- [x] Create `IsAdmin`, `IsInventoryManager`, `IsProcurementAnalyst` DRF permission classes
+- [x] Create `IsAdminOrReadOnly` for reference data endpoints
+- [x] Apply permissions to all views
 
 ### 3.3 Audit Middleware
-- [ ] Write Django middleware that logs every mutating request (POST/PUT/PATCH/DELETE) to `AuditLog`
-- [ ] Middleware captures: user, action, affected model, changed fields, IP address
-- [ ] Mask any token/secret values before writing to audit log
+- [x] Write Django middleware that logs every mutating request (POST/PUT/PATCH/DELETE) to `AuditLog`
+- [x] Middleware captures: user, action, affected model, changed fields, IP address
+- [x] Mask any token/secret values before writing to audit log
 
 ### 3.4 User Management API (Admin only)
-- [ ] `GET /api/users/` — list users
-- [ ] `POST /api/users/` — create user with role
-- [ ] `PUT /api/users/{id}/` — update user (role, active status)
-- [ ] `POST /api/users/{id}/reset-password/` — admin resets password
+- [x] `GET /api/users/` — list users
+- [x] `POST /api/users/` — create user with role
+- [x] `PUT /api/users/{id}/` — update user (role, active status)
+- [x] `POST /api/users/{id}/reset-password/` — admin resets password
 
 ---
 
