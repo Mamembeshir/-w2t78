@@ -19,6 +19,8 @@ const RuleVersionEditorPage  = lazy(() => import('@/pages/crawling/RuleVersionEd
 const TaskMonitorPage        = lazy(() => import('@/pages/crawling/TaskMonitorPage').then((m) => ({ default: m.TaskMonitorPage })))
 const RequestDebuggerPage    = lazy(() => import('@/pages/crawling/RequestDebuggerPage').then((m) => ({ default: m.RequestDebuggerPage })))
 const AdminDashboard      = lazy(() => import('@/pages/admin/AdminDashboard').then((m) => ({ default: m.AdminDashboard })))
+const InboxPage           = lazy(() => import('@/pages/notifications/InboxPage').then((m) => ({ default: m.InboxPage })))
+const SubscriptionsPage   = lazy(() => import('@/pages/notifications/SubscriptionsPage').then((m) => ({ default: m.SubscriptionsPage })))
 const NotImplementedPage  = lazy(() => import('@/pages/common/NotImplementedPage').then((m) => ({ default: m.NotImplementedPage })))
 
 function Lazy({ children }: { children: React.ReactNode }) {
@@ -78,6 +80,10 @@ export const router = createBrowserRouter([
               { path: 'settings',     element: <Lazy><NotImplementedPage /></Lazy> },
             ],
           },
+
+          // ── Notifications (all authenticated users) ───────────────────────
+          { path: 'notifications',          element: <Lazy><InboxPage /></Lazy> },
+          { path: 'notifications/settings', element: <Lazy><SubscriptionsPage /></Lazy> },
 
           // ── Catch-all ──────────────────────────────────────────────────────
           { path: '*', element: <Lazy><NotImplementedPage /></Lazy> },

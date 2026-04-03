@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/hooks/useToast'
+import { useUnreadCount } from '@/hooks/useNotifications'
 import { RoleBadge } from '@/components/ui/Badge'
 import { BellIcon, ArrowRightOnRectangleIcon } from '@/components/ui/icons'
 
@@ -15,6 +16,8 @@ export function TopBar({ sidebarWidth }: TopBarProps) {
   const navigate = useNavigate()
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const { data: unreadData } = useUnreadCount()
+  const unreadCount = unreadData?.unread_count ?? 0
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -43,7 +46,7 @@ export function TopBar({ sidebarWidth }: TopBarProps) {
       className="fixed top-0 right-0 z-topbar flex items-center justify-between px-5 bg-surface-800 border-b border-surface-700 h-14"
       style={{ left: sidebarWidth }}
     >
-      {/* Left side — placeholder for breadcrumb / page title (set per-page via Portal or context in future phases) */}
+      {/* Left side */}
       <div />
 
       {/* Right side — notification + user */}
@@ -51,12 +54,17 @@ export function TopBar({ sidebarWidth }: TopBarProps) {
         {/* Notification bell */}
         <button
           className="relative p-2 rounded-xl text-text-muted hover:text-text-secondary hover:bg-surface-700 transition-colors min-h-touch min-w-touch flex items-center justify-center"
-          aria-label="Notifications"
-          onClick={() => toast.info('Notifications coming in Phase 7.')}
+          aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
+          onClick={() => navigate('/notifications')}
         >
           <BellIcon className="w-5 h-5" />
-          {/* Unread badge — skeleton for Phase 4; wired in Phase 7 */}
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-danger-500 ring-2 ring-surface-800" />
+          {unreadCount > 0 && (
+            <span className="absolute top-1 right-1 min-w-[1.1rem] h-[1.1rem] rounded-full bg-danger-500 ring-2 ring-surface-800 flex items-center justify-center">
+              <span className="text-[0.6rem] font-bold text-white leading-none">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            </span>
+          )}
         </button>
 
         {/* User menu */}
@@ -88,6 +96,13 @@ export function TopBar({ sidebarWidth }: TopBarProps) {
                 <div className="mt-2">{user && <RoleBadge role={user.role} />}</div>
               </div>
               {/* Actions */}
+              <button
+                onClick={() => { setUserMenuOpen(false); navigate('/notifications/settings') }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-text-secondary hover:text-text-primary hover:bg-surface-700 transition-colors"
+              >
+                <BellIcon className="w-4 h-4" />
+                Notification settings
+              </button>
               <button
                 onClick={handleLogout}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-text-secondary hover:text-danger-400 hover:bg-surface-700 transition-colors"

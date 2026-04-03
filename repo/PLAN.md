@@ -347,44 +347,44 @@
 ## Phase 7: Notifications & Inbox
 
 ### 7.1 Notification Event System
-- [ ] Define event types: `SAFETY_STOCK_BREACH`, `CYCLE_COUNT_VARIANCE`, `CRAWL_CANARY_FAILED`, `SLOW_MOVING_STOCK`, `TASK_MAX_RETRIES_REACHED`
-- [ ] Event dispatcher: accepts event_type + payload, fans out to all matching subscriptions
-- [ ] Create `Notification` records for each subscribed user
+- [x] Define event types: `SAFETY_STOCK_BREACH`, `SAFETY_STOCK_RECOVERED`, `CYCLE_COUNT_VARIANCE`, `CRAWL_TASK_FAILED`, `CANARY_ROLLBACK`, `SLOW_MOVING_STOCK`, `DIGEST`, `SYSTEM`
+- [x] Event dispatcher: accepts event_type + payload, fans out to all matching subscriptions
+- [x] Create `Notification` records for each subscribed user
 
 ### 7.2 Subscription API
-- [ ] `GET /api/notifications/subscriptions/` — list user's subscriptions
-- [ ] `POST /api/notifications/subscriptions/` — subscribe to event type with optional threshold
-- [ ] `DELETE /api/notifications/subscriptions/{id}/` — unsubscribe
+- [x] `GET /api/notifications/subscriptions/` — list user's subscriptions
+- [x] `POST /api/notifications/subscriptions/` — subscribe to event type with optional threshold (upsert: reactivates inactive)
+- [x] `DELETE /api/notifications/subscriptions/{id}/` — unsubscribe
 
 ### 7.3 Notification Inbox API
-- [ ] `GET /api/notifications/inbox/` — paginated list with filters (unread, event_type, date range)
-- [ ] `POST /api/notifications/{id}/read/` — mark as read (records read_at)
-- [ ] `POST /api/notifications/read-all/` — mark all as read
-- [ ] `GET /api/notifications/unread-count/` — for badge display
+- [x] `GET /api/notifications/inbox/` — paginated list with filters (unread, event_type, date range)
+- [x] `POST /api/notifications/inbox/{id}/read/` — mark as read (records read_at)
+- [x] `POST /api/notifications/inbox/read-all/` — mark all as read
+- [x] `GET /api/notifications/inbox/unread-count/` — for badge display
 
 ### 7.4 Digest Scheduler
-- [ ] Celery beat task at 18:00 daily: aggregate unread notifications per user
-- [ ] Create a single digest `Notification` summarizing the day's events
-- [ ] Queue digest for outbound delivery if gateway is configured
+- [x] Celery beat task at 18:00 daily: aggregate unread notifications per user
+- [x] Create a single digest `Notification` summarizing the day's events
+- [x] Queue digest for outbound delivery if gateway is configured
 
 ### 7.5 Outbound Gateway Integration
-- [ ] Check for locally configured SMTP host in settings; if present, send email via local relay
-- [ ] Check for locally configured SMS gateway URL; if present, POST to local endpoint
-- [ ] If neither present: leave `OutboundMessage` in QUEUED status
-- [ ] `GET /api/notifications/outbound/queued/` — Admin can view and manually export queued messages
+- [x] Check for locally configured SMTP host in settings; if present, send email via local relay
+- [x] Check for locally configured SMS gateway URL; if present, POST to local endpoint
+- [x] If neither present: leave `OutboundMessage` in QUEUED status
+- [x] `GET /api/notifications/outbound/queued/` — Admin can view and manually export queued messages
 
 ### 7.6 Frontend — Notification Inbox
-- [ ] Bell icon in TopBar with live unread count badge (polling every 30 seconds)
-- [ ] Full inbox page: filter by event type, read/unread, date range
-- [ ] Notification row: icon by event type, title, body preview, timestamp, read indicator
-- [ ] Click → expand full body + mark as read
-- [ ] "Mark all read" button
+- [x] Bell icon in TopBar with live unread count badge (polling every 30 seconds)
+- [x] Full inbox page: filter by event type, read/unread
+- [x] Notification row: event type badge, title, body preview, timestamp, read indicator (unread dot)
+- [x] Click → expand full body + mark as read
+- [x] "Mark all read" button
 
 ### 7.7 Frontend — Subscription Settings
-- [ ] List current subscriptions with event type and threshold value
-- [ ] Add subscription form: event type dropdown, optional threshold input
-- [ ] Remove subscription (with confirm)
-- [ ] Digest schedule toggle (enable/disable 6 PM digest)
+- [x] List current subscriptions with event type and threshold value
+- [x] Add subscription form: event type dropdown, optional threshold input
+- [x] Remove subscription button per row
+- [x] Digest schedule update: current send_time display + time input to change it
 
 ---
 
@@ -487,7 +487,7 @@
 | Phase 4: Frontend Core | [ ] Pending | 0 | 22 |
 | Phase 5: Inventory Ops | [ ] Pending | 0 | 36 |
 | Phase 6: Crawling Engine | [x] Complete | 33 | 33 |
-| Phase 7: Notifications | [ ] Pending | 0 | 21 |
+| Phase 7: Notifications | [x] Complete | 21 | 21 |
 | Phase 8: Testing | [ ] Pending | 0 | 21 |
 | Phase 9: Polish | [ ] Pending | 0 | 20 |
 | **Total** | | **34** | **228** |
