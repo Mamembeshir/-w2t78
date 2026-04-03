@@ -31,7 +31,7 @@ from .models import (
     OutboundMessage,
     OutboundStatus,
 )
-from .tasks import send_daily_digests
+from .tasks import send_daily_digests, send_outbound_queued
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -440,3 +440,89 @@ class DigestScheduleAPITests(TestCase):
         self.client.patch("/api/notifications/digest/", {"send_time": "07:30:00"})
         resp = self.client.get("/api/notifications/digest/")
         self.assertEqual(resp.json()["send_time"], "07:30:00")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 7.8 send_outbound_queued task
+# ─────────────────────────────────────────────────────────────────────────────
+
+class SendOutboundQueuedTaskTests(TestCase):
+    """Tests for the send_outbound_queued Celery task (retry logic)."""
+
+    def setUp(self):
+        from .models import OutboundChannel
+        self.user = create_user("queued_user")
+        self.OutboundChannel = OutboundChannel
+
+    def _make_queued(self, channel=None):
+        if channel is None:
+            channel = self.OutboundChannel.SMTP
+        n = Notification.objects.create(
+            user=self.user,
+            event_type=EventType.SYSTEM,
+            title="Queued msg",
+            body=".",
+        )
+        return OutboundMessage.objects.create(
+            notification=n,
+            channel=channel,
+            status=OutboundStatus.QUEUED,
+        )
+
+    def test_returns_zero_when_no_queued_messages(self):
+        result = send_outbound_queued()
+        self.assertEqual(result["sent"], 0)
+
+    def test_queued_smtp_not_sent_when_no_smtp_host(self):
+        """With no SMTP_HOST, queued SMTP messages remain untouched."""
+        self._make_queued(self.OutboundChannel.SMTP)
+        result = send_outbound_queued()
+        self.assertEqual(result["sent"], 0)
+        # Status must still be QUEUED
+        self.assertEqual(
+            OutboundMessage.objects.filter(status=OutboundStatus.QUEUED).count(), 1
+        )
+
+    def test_queued_sms_not_sent_when_no_sms_gateway(self):
+        """With no SMS_GATEWAY_URL, queued SMS messages remain untouched."""
+        self._make_queued(self.OutboundChannel.SMS)
+        result = send_outbound_queued()
+        self.assertEqual(result["sent"], 0)
+        self.assertEqual(
+            OutboundMessage.objects.filter(status=OutboundStatus.QUEUED).count(), 1
+        )
+
+    def test_already_sent_messages_are_not_retried(self):
+        """Messages in SENT status are not processed by the retry task."""
+        msg = self._make_queued()
+        msg.status = OutboundStatus.SENT
+        msg.save()
+
+        result = send_outbound_queued()
+        self.assertEqual(result["sent"], 0)
+
+    def test_already_failed_messages_are_not_retried(self):
+        """Messages in FAILED status are not processed by the retry task."""
+        msg = self._make_queued()
+        msg.status = OutboundStatus.FAILED
+        msg.save()
+
+        result = send_outbound_queued()
+        self.assertEqual(result["sent"], 0)
+
+    def test_queued_smtp_attempted_when_smtp_host_set(self):
+        """When SMTP_HOST is set, the task attempts delivery (will fail → FAILED status)."""
+        from django.test import override_settings
+        self.user.email = "test@example.local"
+        self.user.save()
+        msg = self._make_queued(self.OutboundChannel.SMTP)
+
+        # With a bogus SMTP host the connection will fail gracefully (→ FAILED)
+        with override_settings(SMTP_HOST="localhost", SMTP_PORT=1):
+            result = send_outbound_queued()
+
+        self.assertEqual(result["sent"], 1)  # task attempted it
+        msg.refresh_from_db()
+        # Delivery failed → status is FAILED (not QUEUED)
+        self.assertEqual(msg.status, OutboundStatus.FAILED)
+        self.assertTrue(len(msg.error) > 0)

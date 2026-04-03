@@ -109,9 +109,11 @@ def _schedule_retry(task: CrawlTask, error: str) -> None:
     """Schedule the next retry or mark as permanently FAILED."""
     from datetime import timedelta
 
+    from config.logging_filters import _mask
+
     attempt = task.attempt_count + 1
     task.attempt_count = attempt
-    task.last_error = error[:2000]
+    task.last_error = _mask(error)[:2000]
 
     if attempt >= _MAX_ATTEMPTS:
         task.status = CrawlTaskStatus.FAILED

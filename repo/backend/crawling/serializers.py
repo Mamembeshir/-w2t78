@@ -39,6 +39,25 @@ class CrawlSourceSerializer(serializers.ModelSerializer):
         rv = obj.rule_versions.filter(is_active=True).first()
         return rv.pk if rv else None
 
+    def validate_base_url(self, value: str) -> str:
+        """Reject non-http(s) URLs (e.g. javascript:, file:, data:)."""
+        if not value.lower().startswith(("http://", "https://")):
+            raise serializers.ValidationError(
+                "base_url must begin with http:// or https://."
+            )
+        return value
+
+    def validate_user_agents(self, value) -> list:
+        """Ensure user_agents is a list of non-empty strings."""
+        if not isinstance(value, list):
+            raise serializers.ValidationError("user_agents must be a list.")
+        for i, ua in enumerate(value):
+            if not isinstance(ua, str) or not ua.strip():
+                raise serializers.ValidationError(
+                    f"user_agents[{i}] must be a non-empty string."
+                )
+        return value
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Rule Version

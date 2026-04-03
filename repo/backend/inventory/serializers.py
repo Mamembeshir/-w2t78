@@ -46,6 +46,19 @@ class ItemSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "slow_moving_flagged_at", "created_at", "updated_at"]
 
+    def validate_costing_method(self, value):
+        """Prevent changing costing_method once ledger entries exist."""
+        instance = self.instance
+        if instance is None:
+            return value  # create — always allowed
+        if instance.costing_method == value:
+            return value  # no change
+        if instance.ledger_entries.exists():
+            raise serializers.ValidationError(
+                "Costing method cannot be changed after stock transactions have been posted."
+            )
+        return value
+
 
 class ItemDetailSerializer(ItemSerializer):
     """Item detail — includes aggregated stock balance across all locations."""
@@ -123,8 +136,8 @@ class ReceiveStockSerializer(serializers.Serializer):
     warehouse_id = serializers.IntegerField()
     bin_id = serializers.IntegerField(required=False, allow_null=True)
     lot_id = serializers.IntegerField(required=False, allow_null=True)
-    quantity = serializers.DecimalField(max_digits=14, decimal_places=4, min_value=Decimal("0.0001"))
-    unit_cost = serializers.DecimalField(max_digits=14, decimal_places=6, min_value=Decimal("0"))
+    quantity = serializers.DecimalField(max_digits=14, decimal_places=4, min_value=Decimal("0.0001"), max_value=Decimal("9999999.9999"))
+    unit_cost = serializers.DecimalField(max_digits=14, decimal_places=6, min_value=Decimal("0"), max_value=Decimal("99999999.999999"))
     reference = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
 
 
@@ -133,7 +146,7 @@ class IssueStockSerializer(serializers.Serializer):
     warehouse_id = serializers.IntegerField()
     bin_id = serializers.IntegerField(required=False, allow_null=True)
     lot_id = serializers.IntegerField(required=False, allow_null=True)
-    quantity = serializers.DecimalField(max_digits=14, decimal_places=4, min_value=Decimal("0.0001"))
+    quantity = serializers.DecimalField(max_digits=14, decimal_places=4, min_value=Decimal("0.0001"), max_value=Decimal("9999999.9999"))
     reference = serializers.CharField(
         max_length=200, required=False, allow_blank=True, default="",
         help_text="Work order reference or other document number.",
@@ -147,7 +160,7 @@ class TransferSerializer(serializers.Serializer):
     to_warehouse_id = serializers.IntegerField()
     to_bin_id = serializers.IntegerField(required=False, allow_null=True)
     lot_id = serializers.IntegerField(required=False, allow_null=True)
-    quantity = serializers.DecimalField(max_digits=14, decimal_places=4, min_value=Decimal("0.0001"))
+    quantity = serializers.DecimalField(max_digits=14, decimal_places=4, min_value=Decimal("0.0001"), max_value=Decimal("9999999.9999"))
     reference = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
 
     def validate(self, data):

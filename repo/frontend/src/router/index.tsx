@@ -18,7 +18,9 @@ const SourcesPage            = lazy(() => import('@/pages/crawling/SourcesPage')
 const RuleVersionEditorPage  = lazy(() => import('@/pages/crawling/RuleVersionEditorPage').then((m) => ({ default: m.RuleVersionEditorPage })))
 const TaskMonitorPage        = lazy(() => import('@/pages/crawling/TaskMonitorPage').then((m) => ({ default: m.TaskMonitorPage })))
 const RequestDebuggerPage    = lazy(() => import('@/pages/crawling/RequestDebuggerPage').then((m) => ({ default: m.RequestDebuggerPage })))
-const AdminDashboard      = lazy(() => import('@/pages/admin/AdminDashboard').then((m) => ({ default: m.AdminDashboard })))
+const AdminDashboard        = lazy(() => import('@/pages/admin/AdminDashboard').then((m) => ({ default: m.AdminDashboard })))
+const UserManagementPage    = lazy(() => import('@/pages/admin/UserManagementPage').then((m) => ({ default: m.UserManagementPage })))
+const AuditLogPage          = lazy(() => import('@/pages/admin/AuditLogPage').then((m) => ({ default: m.AuditLogPage })))
 const InboxPage           = lazy(() => import('@/pages/notifications/InboxPage').then((m) => ({ default: m.InboxPage })))
 const SubscriptionsPage   = lazy(() => import('@/pages/notifications/SubscriptionsPage').then((m) => ({ default: m.SubscriptionsPage })))
 const NotImplementedPage  = lazy(() => import('@/pages/common/NotImplementedPage').then((m) => ({ default: m.NotImplementedPage })))
@@ -75,8 +77,8 @@ export const router = createBrowserRouter([
             element: <ProtectedRoute allowedRoles={['ADMIN']} />,
             children: [
               { index: true,          element: <Lazy><AdminDashboard /></Lazy> },
-              { path: 'users',        element: <Lazy><NotImplementedPage /></Lazy> },
-              { path: 'audit',        element: <Lazy><NotImplementedPage /></Lazy> },
+              { path: 'users',        element: <Lazy><UserManagementPage /></Lazy> },
+              { path: 'audit',        element: <Lazy><AuditLogPage /></Lazy> },
               { path: 'settings',     element: <Lazy><NotImplementedPage /></Lazy> },
             ],
           },

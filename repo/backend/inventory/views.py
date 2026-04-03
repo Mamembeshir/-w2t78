@@ -3,7 +3,7 @@ inventory/views.py — Item, ledger, balance, and transaction API views.
 """
 from decimal import Decimal
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
@@ -86,6 +86,15 @@ class ItemViewSet(
         if self.action in ("create", "update", "partial_update"):
             return [IsInventoryManager()]
         return [IsAuthenticated()]
+
+    def create(self, request, *args, **kwargs):
+        try:
+            return super().create(request, *args, **kwargs)
+        except IntegrityError:
+            return Response(
+                {"code": "conflict", "message": "An item with this SKU already exists."},
+                status=status.HTTP_409_CONFLICT,
+            )
 
     @action(detail=True, methods=["get"], url_path="lots")
     def lots(self, request, pk=None):
