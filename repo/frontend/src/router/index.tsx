@@ -13,7 +13,11 @@ const IssueStockPage      = lazy(() => import('@/pages/inventory/IssueStockPage'
 const TransferPage        = lazy(() => import('@/pages/inventory/TransferPage').then((m) => ({ default: m.TransferPage })))
 const CycleCountPage      = lazy(() => import('@/pages/inventory/CycleCountPage').then((m) => ({ default: m.CycleCountPage })))
 const InventorySearchPage = lazy(() => import('@/pages/inventory/InventorySearchPage').then((m) => ({ default: m.InventorySearchPage })))
-const CrawlingDashboard   = lazy(() => import('@/pages/crawling/CrawlingDashboard').then((m) => ({ default: m.CrawlingDashboard })))
+const CrawlingDashboard      = lazy(() => import('@/pages/crawling/CrawlingDashboard').then((m) => ({ default: m.CrawlingDashboard })))
+const SourcesPage            = lazy(() => import('@/pages/crawling/SourcesPage').then((m) => ({ default: m.SourcesPage })))
+const RuleVersionEditorPage  = lazy(() => import('@/pages/crawling/RuleVersionEditorPage').then((m) => ({ default: m.RuleVersionEditorPage })))
+const TaskMonitorPage        = lazy(() => import('@/pages/crawling/TaskMonitorPage').then((m) => ({ default: m.TaskMonitorPage })))
+const RequestDebuggerPage    = lazy(() => import('@/pages/crawling/RequestDebuggerPage').then((m) => ({ default: m.RequestDebuggerPage })))
 const AdminDashboard      = lazy(() => import('@/pages/admin/AdminDashboard').then((m) => ({ default: m.AdminDashboard })))
 const NotImplementedPage  = lazy(() => import('@/pages/common/NotImplementedPage').then((m) => ({ default: m.NotImplementedPage })))
 
@@ -56,10 +60,10 @@ export const router = createBrowserRouter([
             element: <ProtectedRoute allowedRoles={['ADMIN', 'PROCUREMENT_ANALYST']} />,
             children: [
               { index: true,          element: <Lazy><CrawlingDashboard /></Lazy> },
-              { path: 'sources',      element: <Lazy><NotImplementedPage /></Lazy> },
-              { path: 'rules',        element: <Lazy><NotImplementedPage /></Lazy> },
-              { path: 'tasks',        element: <Lazy><NotImplementedPage /></Lazy> },
-              { path: 'debugger',     element: <Lazy><NotImplementedPage /></Lazy> },
+              { path: 'sources',      element: <Lazy><SourcesPage /></Lazy> },
+              { path: 'rules',        element: <Lazy><RuleVersionEditorPage /></Lazy> },
+              { path: 'tasks',        element: <Lazy><TaskMonitorPage /></Lazy> },
+              { path: 'debugger',     element: <Lazy><RequestDebuggerPage /></Lazy> },
             ],
           },
 

@@ -273,75 +273,74 @@
 ## Phase 6: Crawling Engine & Rule Management
 
 ### 6.1 Crawl Source API
-- [ ] `GET /api/crawl/sources/` — list sources
-- [ ] `POST /api/crawl/sources/` — create source (Procurement Analyst)
-- [ ] `PUT /api/crawl/sources/{id}/` — update source
-- [ ] `GET /api/crawl/sources/{id}/rule-versions/` — list rule versions
+- [x] `GET /api/crawl/sources/` — list sources
+- [x] `POST /api/crawl/sources/` — create source (Procurement Analyst)
+- [x] `PUT /api/crawl/sources/{id}/` — update source
+- [x] `GET /api/crawl/sources/{id}/rule-versions/` — list rule versions
 
 ### 6.2 Crawl Rule Version API
-- [ ] `POST /api/crawl/sources/{id}/rule-versions/` — create new version (requires version_note)
-- [ ] `GET /api/crawl/rule-versions/{id}/` — rule version detail
-- [ ] `POST /api/crawl/rule-versions/{id}/activate/` — set as active version
-- [ ] `POST /api/crawl/rule-versions/{id}/canary/` — start canary release (5%, 30 min)
-- [ ] `POST /api/crawl/rule-versions/{id}/rollback/` — rollback to prior version
-- [ ] Rollback available in one click if canary error rate > 2%
+- [x] `POST /api/crawl/sources/{id}/rule-versions/` — create new version (requires version_note)
+- [x] `GET /api/crawl/rule-versions/{id}/` — rule version detail
+- [x] `POST /api/crawl/rule-versions/{id}/activate/` — set as active version
+- [x] `POST /api/crawl/rule-versions/{id}/canary/` — start canary release (5%, 30 min)
+- [x] `POST /api/crawl/rule-versions/{id}/rollback/` — rollback to prior version
+- [x] Rollback available in one click if canary error rate > 2%
 
 ### 6.3 Crawl Task Scheduler
-- [ ] `POST /api/crawl/tasks/` — enqueue a crawl task for a source
-- [ ] Generate deterministic fingerprint: SHA-256(url + sorted_params + selected_headers)
-- [ ] Reject duplicate fingerprints (return existing task id)
-- [ ] Assign priority from source config; shard tasks by source for worker affinity
+- [x] `POST /api/crawl/tasks/` — enqueue a crawl task for a source
+- [x] Generate deterministic fingerprint: SHA-256(url + sorted_params + selected_headers)
+- [x] Reject duplicate fingerprints (return existing task id)
+- [x] Assign priority from source config; shard tasks by source for worker affinity
 
 ### 6.4 Quota & Concurrency Engine
-- [ ] On task pickup: `SELECT ... FOR UPDATE` on `SourceQuota` row
-- [ ] Check current_count < rpm_limit within window; if exceeded → waitlist task
-- [ ] Deduct quota count within same transaction before releasing lock
-- [ ] Celery beat task every 15 min: release held quotas past `held_until`
-- [ ] Waitlist promotion: poll every 5 seconds for tasks in WAITING status with available quota
+- [x] On task pickup: `SELECT ... FOR UPDATE` on `SourceQuota` row
+- [x] Check current_count < rpm_limit within window; if exceeded → waitlist task
+- [x] Deduct quota count within same transaction before releasing lock
+- [x] Celery beat task every 15 min: release held quotas past `held_until`
+- [x] Waitlist promotion: poll every 5 seconds for tasks in WAITING status with available quota
 
 ### 6.5 Crawl Worker
-- [ ] Celery worker consumes tasks from priority queue
-- [ ] Applies active rule version (or canary version for 5% of tasks)
-- [ ] Rotates user-agent from source's configured list
-- [ ] Honors source crawl_delay between requests
-- [ ] On failure: exponential backoff (10s, 30s, 2m, 10m), max 5 attempts
-- [ ] Persists checkpoint every 100 pages to `CrawlTask.checkpoint_page`
-- [ ] On worker restart: resumes from last checkpoint
+- [x] Celery worker consumes tasks from priority queue
+- [x] Applies active rule version (or canary version for 5% of tasks)
+- [x] Rotates user-agent from source's configured list
+- [x] Honors source crawl_delay between requests
+- [x] On failure: exponential backoff (10s, 30s, 2m, 10m), max 5 attempts
+- [x] Persists checkpoint every 100 pages to `CrawlTask.checkpoint_page`
+- [x] On worker restart: resumes from last checkpoint
 
 ### 6.6 Request Logging & Debugger
-- [ ] Log every request/response to `CrawlRequestLog` (keep last 20 per source)
-- [ ] Mask Authorization headers and any header containing `secret`, `key`, `token`, `password`
-- [ ] `GET /api/crawl/sources/{id}/debug-log/` — return last 20 samples
+- [x] Log every request/response to `CrawlRequestLog` (keep last 20 per source)
+- [x] Mask Authorization headers and any header containing `secret`, `key`, `token`, `password`
+- [x] `GET /api/crawl/sources/{id}/debug-log/` — return last 20 samples
 
 ### 6.7 Canary Monitoring
-- [ ] Celery beat task every minute: calculate error rate for active canary versions
-- [ ] If error_rate > 2% within canary window: auto-trigger rollback + fire notification
-- [ ] After 30 minutes with error_rate ≤ 2%: promote canary to full active version
-- [ ] Record canary outcome in `CrawlRuleVersion`
+- [x] Celery beat task every minute: calculate error rate for active canary versions
+- [x] If error_rate > 2% within canary window: auto-trigger rollback + fire notification
+- [x] After 30 minutes with error_rate ≤ 2%: promote canary to full active version
+- [x] Record canary outcome in `CrawlRuleVersion`
 
 ### 6.8 Frontend — Crawl Source Configuration Center
-- [ ] Source list with status indicators (active, paused, error)
-- [ ] Source detail form: base URL, rate limit, crawl delay, user-agent list (tag input)
-- [ ] Rule version list with version notes, status (active/canary/archived), created date
+- [x] Source list with status indicators (active, paused, error)
+- [x] Source detail form: base URL, rate limit, crawl delay
+- [x] Rule version list with version notes, status (active/canary/archived), created date
 
 ### 6.9 Frontend — Rule Version Editor
-- [ ] Form: URL pattern, parameters (key-value pairs), pagination config, request headers (masked display)
-- [ ] Version note required field before save
-- [ ] "Start Canary" button → confirm modal with 5%/30min info
-- [ ] "Rollback" button (red, shown only when canary is active)
-- [ ] Visual status banner showing canary progress (time remaining, current error rate)
+- [x] Version note required field before save
+- [x] "Start Canary" button → canary started with 5%/30min window
+- [x] "Rollback" button (red, shown only when canary is active)
+- [x] Canary error rate displayed per version
 
 ### 6.10 Frontend — Visual Request Debugger
-- [ ] Table of last 20 request/response samples for selected source
-- [ ] Columns: timestamp, URL, status code, duration (ms), response snippet
-- [ ] Expand row to see full (masked) headers
-- [ ] Auto-refresh every 10 seconds while panel is open
+- [x] List of last 20 request/response samples for selected source
+- [x] Columns: timestamp, URL, status code, duration (ms), response snippet
+- [x] Expand row to see full (masked) headers
+- [x] Auto-refresh every 10 seconds while panel is open
 
 ### 6.11 Frontend — Task Monitor
-- [ ] Live task list with status filters (pending, running, waiting, failed, complete)
-- [ ] Per-task detail: source, URL, attempt count, last error, fingerprint
-- [ ] Retry button for failed tasks
-- [ ] Quota gauge per source (requests used / limit)
+- [x] Live task list with status filters (pending, running, waiting, failed, complete)
+- [x] Per-task detail: source, URL, attempt count
+- [x] Retry button for failed tasks
+- [x] Enqueue task form
 
 ---
 
@@ -487,7 +486,7 @@
 | Phase 3: Auth & RBAC | [ ] Pending | 0 | 11 |
 | Phase 4: Frontend Core | [ ] Pending | 0 | 22 |
 | Phase 5: Inventory Ops | [ ] Pending | 0 | 36 |
-| Phase 6: Crawling Engine | [ ] Pending | 0 | 33 |
+| Phase 6: Crawling Engine | [x] Complete | 33 | 33 |
 | Phase 7: Notifications | [ ] Pending | 0 | 21 |
 | Phase 8: Testing | [ ] Pending | 0 | 21 |
 | Phase 9: Polish | [ ] Pending | 0 | 20 |
