@@ -435,6 +435,18 @@
 
 ## Phase 9: Polish & Offline Validation
 
+### 9.0 TypeScript Build Fixes
+- [x] Fix `Input.tsx`: `forwardRef` + `Omit<..., 'prefix'>` for ReactNode prefix
+- [x] Create `vite-env.d.ts`: add `/// <reference types="vite/client" />`
+- [x] Fix `AdminDashboard.tsx`: `AuditRow`/`UserRow` extend `Record<string, unknown>`
+- [x] Fix `CycleCountPage.tsx`: remove unused `Badge`, fix `useToast()` API
+- [x] Fix `InventoryDashboard.tsx`: remove `useRecentTransactions`/`Badge`/`todayReceives`
+- [x] Fix `InventorySearchPage.tsx`: remove unused `LedgerEntry`, `keyField` → `rowKey`, `open` → `isOpen`
+- [x] Fix `IssueStockPage.tsx`: fix `useToast()` API, `keyField` → `rowKey`
+- [x] Fix `ReceiveStockPage.tsx`: fix `useToast()` API
+- [x] Fix `TransferPage.tsx`: fix `useToast()` API, `open` → `isOpen`
+- [x] Verify `npm run build` passes with zero TypeScript errors
+
 ### 9.1 Offline Asset Audit
 - [ ] Audit all HTML/JS/CSS for any external URL references (CDN, fonts, APIs)
 - [ ] Bundle QuaggaJS locally in `frontend/src/vendor/`
@@ -489,5 +501,5 @@
 | Phase 6: Crawling Engine | [x] Complete | 33 | 33 |
 | Phase 7: Notifications | [x] Complete | 21 | 21 |
 | Phase 8: Testing | [x] Complete | 21 | 21 |
-| Phase 9: Polish | [ ] Pending | 0 | 20 |
-| **Total** | | **34** | **228** |
+| Phase 9: Polish | [-] In Progress | 10 | 30 |
+| **Total** | | **153** | **238** |

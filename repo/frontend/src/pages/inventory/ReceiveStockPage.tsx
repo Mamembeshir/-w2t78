@@ -15,7 +15,7 @@ import {
 } from '@/hooks/useInventory'
 
 export function ReceiveStockPage() {
-  const { add: addToast } = useToast()
+  const toast = useToast()
   const scanRef = useRef<HTMLInputElement>(null)
 
   const [scanValue, setScanValue] = useState('')
@@ -64,7 +64,7 @@ export function ReceiveStockPage() {
         reference,
       })
       setLastResult(result)
-      addToast('success', `Received ${quantity} × ${selectedItem?.sku} — balance updated.`)
+      toast.success(`Received ${quantity} × ${selectedItem?.sku} — balance updated.`)
       // Reset form
       setScanValue('')
       setSelectedItemId(null)
@@ -77,7 +77,7 @@ export function ReceiveStockPage() {
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
         ?? 'Receive failed.'
-      addToast('error', msg)
+      toast.error(msg)
     }
   }
 

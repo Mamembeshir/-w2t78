@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/Badge'
 import { DataTable } from '@/components/ui/DataTable'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
-import { useItems, useItemLedger, type Item, type LedgerEntry } from '@/hooks/useInventory'
+import { useItems, useItemLedger, type Item } from '@/hooks/useInventory'
 import type { Column } from '@/types'
 
 const TX_LABELS: Record<string, string> = {
@@ -143,7 +143,7 @@ export function InventorySearchPage() {
         <DataTable<Record<string, unknown>>
           columns={itemColumns}
           data={(itemsData?.results ?? []).map(i => ({ ...i } as Record<string, unknown>))}
-          keyField="id"
+          rowKey="id"
           isLoading={isLoading}
           emptyMessage="No items found."
           onRowClick={row => {
@@ -155,7 +155,7 @@ export function InventorySearchPage() {
 
       {/* Ledger drill-down modal */}
       <Modal
-        open={showLedger && selectedItem != null}
+        isOpen={showLedger && selectedItem != null}
         onClose={() => { setShowLedger(false); setSelectedItem(null) }}
         title={`Ledger: ${selectedItem?.sku}`}
         size="xl"
@@ -194,7 +194,7 @@ export function InventorySearchPage() {
           <DataTable<Record<string, unknown>>
             columns={ledgerColumns}
             data={(ledgerData?.results ?? []).map(e => ({ ...e } as Record<string, unknown>))}
-            keyField="id"
+            rowKey="id"
             isLoading={showLedger && ledgerData === undefined}
             emptyMessage="No ledger entries for this item."
           />

@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/useToast'
 import { useItems, useWarehouses, useBins, useBalances, useTransferStock } from '@/hooks/useInventory'
 
 export function TransferPage() {
-  const { add: addToast } = useToast()
+  const toast = useToast()
 
   const [itemSearch, setItemSearch] = useState('')
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null)
@@ -55,13 +55,13 @@ export function TransferPage() {
         quantity,
         reference,
       })
-      addToast('success', `Transferred ${quantity} × ${selectedItem?.sku}.`)
+      toast.success(`Transferred ${quantity} × ${selectedItem?.sku}.`)
       setSelectedItemId(null); setItemSearch(''); setQuantity(''); setReference('')
       setFromWarehouseId(null); setFromBinId(null)
       setToWarehouseId(null); setToBinId(null)
     } catch (err: unknown) {
       const data = (err as { response?: { data?: { message?: string } } })?.response?.data
-      addToast('error', data?.message ?? 'Transfer failed.')
+      toast.error(data?.message ?? 'Transfer failed.')
     }
   }
 
@@ -146,7 +146,7 @@ export function TransferPage() {
 
       {/* Confirmation modal */}
       <Modal
-        open={showConfirm}
+        isOpen={showConfirm}
         onClose={() => setShowConfirm(false)}
         title="Confirm Transfer"
         footer={

@@ -2,44 +2,14 @@ import { useNavigate } from 'react-router-dom'
 import { PageWrapper } from '@/components/layout/PageWrapper'
 import { StatCard } from '@/components/ui/Card'
 import { DataTable } from '@/components/ui/DataTable'
-import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import {
   CubeIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, ExclamationTriangleIcon,
 } from '@/components/ui/icons'
-import { useItems, useBalances, useItemLedger } from '@/hooks/useInventory'
+import { useItems, useBalances } from '@/hooks/useInventory'
 import type { Column } from '@/types'
 
-const TX_VARIANT: Record<string, 'success' | 'danger' | 'info' | 'warning' | 'neutral'> = {
-  RECEIVE: 'success', ISSUE: 'danger', TRANSFER_OUT: 'warning',
-  TRANSFER_IN: 'info', CYCLE_COUNT_ADJUST: 'neutral',
-}
-const TX_LABELS: Record<string, string> = {
-  RECEIVE: 'Receive', ISSUE: 'Issue', TRANSFER_OUT: 'Transfer Out',
-  TRANSFER_IN: 'Transfer In', CYCLE_COUNT_ADJUST: 'Adj.',
-}
-
-interface TxRow { id: string; transaction_type: string; item_sku: string; warehouse_code: string; quantity: string; posted_by_username: string; timestamp: string }
-
-const TX_COLUMNS: Column<TxRow>[] = [
-  {
-    key: 'transaction_type', header: 'Type', sortable: true,
-    render: v => <Badge variant={TX_VARIANT[v as string] ?? 'neutral'}>{TX_LABELS[v as string] ?? v as string}</Badge>,
-  },
-  { key: 'item_sku', header: 'SKU', sortable: true, className: 'font-mono text-primary-400' },
-  { key: 'warehouse_code', header: 'Warehouse', sortable: true },
-  {
-    key: 'quantity', header: 'Qty', sortable: false,
-    render: v => {
-      const n = Number(v)
-      return <span className={n >= 0 ? 'text-success-400' : 'text-danger-400'}>{n > 0 ? '+' : ''}{v as string}</span>
-    },
-  },
-  { key: 'posted_by_username', header: 'User', sortable: false, render: v => (v as string | null) ?? '—' },
-  { key: 'timestamp', header: 'Time', sortable: false, render: v => new Date(v as string).toLocaleString() },
-]
-
-interface AlertRow { id: string; item_sku: string; item_name: string; warehouse_code: string; quantity_on_hand: string; safety_stock_qty: string }
+interface AlertRow extends Record<string, unknown> { id: string; item_sku: string; item_name: string; warehouse_code: string; quantity_on_hand: string; safety_stock_qty: string }
 const ALERT_COLUMNS: Column<AlertRow>[] = [
   { key: 'item_sku', header: 'SKU', sortable: true, className: 'font-mono text-primary-400' },
   { key: 'item_name', header: 'Item', sortable: true },
@@ -51,16 +21,6 @@ const ALERT_COLUMNS: Column<AlertRow>[] = [
   { key: 'safety_stock_qty', header: 'Threshold', sortable: false },
 ]
 
-// Recent transactions use the first active item's ledger as a proxy for all-items feed.
-// A proper recent-transactions endpoint is wired in the same API layer.
-function useRecentTransactions() {
-  // Fetch first page of items and use ledger endpoint via a generic query
-  const { data: items } = useItems()
-  // Use the first item's ledger as recent-tx placeholder; Phase 5 provides per-item ledgers
-  const firstItemId = items?.results[0]?.id ?? null
-  return useItemLedger(firstItemId)
-}
-
 export function InventoryDashboard() {
   const navigate = useNavigate()
 
@@ -70,9 +30,6 @@ export function InventoryDashboard() {
 
   const totalSkus = itemsData?.count ?? 0
   const lowStockCount = belowSafetyData?.count ?? 0
-
-  // Count today's receipts and issues from all balances (approximate via ledger is in item detail)
-  const todayReceives = allBalances?.results.length ?? 0
 
   return (
     <PageWrapper

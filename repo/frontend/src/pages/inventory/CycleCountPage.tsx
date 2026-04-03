@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Card } from '@/components/ui/Card'
-import { Badge } from '@/components/ui/Badge'
 import { useToast } from '@/hooks/useToast'
 import {
   useItems,
@@ -27,7 +26,7 @@ const REASON_CODES = [
 ]
 
 export function CycleCountPage() {
-  const { add: addToast } = useToast()
+  const toast = useToast()
   const [step, setStep] = useState<Step>(1)
   const [session, setSession] = useState<CycleCountSession | null>(null)
 
@@ -62,7 +61,7 @@ export function CycleCountPage() {
       setSession(s)
       setStep(2)
     } catch {
-      addToast('error', 'Failed to start count session.')
+      toast.error('Failed to start count session.')
     }
   }
 
@@ -79,7 +78,7 @@ export function CycleCountPage() {
         setStep(4)
       }
     } catch {
-      addToast('error', 'Failed to submit count.')
+      toast.error('Failed to submit count.')
     }
   }
 
@@ -92,7 +91,7 @@ export function CycleCountPage() {
       setSession(s)
       setStep(4)
     } catch {
-      addToast('error', 'Confirmation failed.')
+      toast.error('Confirmation failed.')
     }
   }
 

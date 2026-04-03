@@ -25,7 +25,7 @@ const lotColumns: Column<Record<string, unknown>>[] = [
 ]
 
 export function IssueStockPage() {
-  const { add: addToast } = useToast()
+  const toast = useToast()
   const scanRef = useRef<HTMLInputElement>(null)
 
   const [scanValue, setScanValue] = useState('')
@@ -69,16 +69,16 @@ export function IssueStockPage() {
         reference,
       })
       setIssuedEntries(result.ledger_entries as LedgerEntry[])
-      addToast('success', `Issued ${quantity} × ${selectedItem?.sku}.`)
+      toast.success(`Issued ${quantity} × ${selectedItem?.sku}.`)
       setScanValue(''); setSelectedItemId(null); setQuantity(''); setReference('')
       setBinId(null); setLotId(null)
       scanRef.current?.focus()
     } catch (err: unknown) {
       const data = (err as { response?: { data?: { message?: string; code?: string } } })?.response?.data
       if (data?.code === 'insufficient_stock') {
-        addToast('error', `Insufficient stock: ${data.message}`)
+        toast.error(`Insufficient stock: ${data.message}`)
       } else {
-        addToast('error', data?.message ?? 'Issue failed.')
+        toast.error(data?.message ?? 'Issue failed.')
       }
     }
   }
@@ -151,7 +151,7 @@ export function IssueStockPage() {
             <DataTable<Record<string, unknown>>
               columns={lotColumns}
               data={lotsData.results.map(l => ({ ...l } as Record<string, unknown>))}
-              keyField="id"
+              rowKey="id"
             />
           </Card>
         )}

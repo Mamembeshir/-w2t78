@@ -11,7 +11,7 @@ const STAT_CARDS = [
   { label: 'System Status',    value: 'OK', sublabel: 'All services up',  icon: <Cog6ToothIcon className="w-5 h-5" />,  accent: 'success' as const },
 ]
 
-interface AuditRow { id: string; user: string; action: string; model: string; object: string; ip: string; time: string }
+interface AuditRow extends Record<string, unknown> { id: string; user: string; action: string; model: string; object: string; ip: string; time: string }
 const AUDIT_COLUMNS: Column<AuditRow>[] = [
   { key: 'user',   header: 'User',   sortable: true },
   { key: 'action', header: 'Action', sortable: true,
@@ -26,7 +26,7 @@ const AUDIT_COLUMNS: Column<AuditRow>[] = [
   { key: 'time',   header: 'Time',   sortable: false },
 ]
 
-interface UserRow { id: string; username: string; role: string; active: string; joined: string }
+interface UserRow extends Record<string, unknown> { id: string; username: string; role: string; active: string; joined: string }
 const USER_COLUMNS: Column<UserRow>[] = [
   { key: 'username', header: 'Username', sortable: true, className: 'font-medium text-text-primary' },
   { key: 'role',     header: 'Role',     sortable: true, render: (v) => <RoleBadge role={String(v)} /> },
