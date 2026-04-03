@@ -2,11 +2,12 @@
 config/urls.py — root URL configuration
 API routes added per phase as apps are built.
 """
+import os
+
 from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
 from django.db import connection, OperationalError
-from django.core.cache import cache
 
 
 def health(request):
@@ -14,6 +15,8 @@ def health(request):
     GET /api/health/
     Returns 200 if Django + DB + Redis are healthy.
     Used by run_test.sh to gate service startup.
+    Checks Redis via a direct redis-py ping (not the application cache layer)
+    so the result is not affected by the DummyCache backend used in tests.
     """
     db_ok = True
     try:
@@ -23,8 +26,13 @@ def health(request):
 
     redis_ok = True
     try:
-        cache.set("_health_probe", "1", timeout=5)
-        redis_ok = cache.get("_health_probe") == "1"
+        import redis as _redis
+        _r = _redis.from_url(
+            os.environ.get("REDIS_URL", "redis://redis:6379/0"),
+            socket_connect_timeout=2,
+            socket_timeout=2,
+        )
+        redis_ok = _r.ping()
     except Exception:
         redis_ok = False
 
@@ -50,4 +58,6 @@ urlpatterns = [
     path("api/crawl/", include("crawling.urls")),
     # Notifications — Phase 7
     path("api/notifications/", include("notifications.urls")),
+    # Audit log — Phase 9
+    path("api/", include("audit.urls")),
 ]

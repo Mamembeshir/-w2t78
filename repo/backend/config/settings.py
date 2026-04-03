@@ -127,10 +127,19 @@ DATABASES = {
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Cache — Redis (local only, no external)
+# During `manage.py test` or pytest runs, use DummyCache so throttle counters
+# never accumulate across test methods (avoids 429 failures in test suites).
 # ─────────────────────────────────────────────────────────────────────────────
+import sys as _sys
+_TESTING = "test" in _sys.argv or "pytest" in _sys.modules
+
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "BACKEND": (
+            "django.core.cache.backends.dummy.DummyCache"
+            if _TESTING
+            else "django.core.cache.backends.redis.RedisCache"
+        ),
         "LOCATION": os.environ.get("REDIS_URL", "redis://redis:6379/0"),
         "OPTIONS": {
             "socket_connect_timeout": 5,
@@ -181,6 +190,17 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 50,
     "EXCEPTION_HANDLER": "config.exceptions.custom_exception_handler",
+    # Throttle authenticated API calls and protect the login endpoint
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "200/hour",
+        "user": "2000/hour",
+        # Named scope used by LoginView only
+        "login": "5/minute",
+    },
 }
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -111,6 +111,23 @@ class CrawlRuleVersionCreateSerializer(serializers.ModelSerializer):
             "request_headers": {"required": False},
         }
 
+    def validate_request_headers(self, value):
+        """Ensure request_headers is either empty or valid JSON representing a flat dict."""
+        if not value:
+            return value
+        try:
+            parsed = json.loads(value)
+        except (json.JSONDecodeError, TypeError):
+            raise serializers.ValidationError(
+                "request_headers must be a valid JSON object (e.g. {\"Authorization\": \"Bearer token\"})."
+            )
+        if not isinstance(parsed, dict):
+            raise serializers.ValidationError("request_headers must be a JSON object, not an array or scalar.")
+        for k, v in parsed.items():
+            if not isinstance(k, str) or not isinstance(v, str):
+                raise serializers.ValidationError("request_headers keys and values must all be strings.")
+        return value
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Task

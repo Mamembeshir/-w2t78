@@ -5,9 +5,25 @@ All tests use a real MySQL test database spun up by pytest-django.
 No mocking — APIClient calls hit real views and real DB.
 """
 import pytest
+from django.test import override_settings
 from rest_framework.test import APIClient
 
 from accounts.models import User, Role
+
+
+# ── Throttle suppression for tests ───────────────────────────────────────────
+# Rate throttles use Django's cache backend.  During the test suite many login
+# calls happen within a single minute from the same IP, which would exceed the
+# 5/min login throttle.  Override to use DummyCache so throttle counters never
+# accumulate across test methods.
+
+@pytest.fixture(autouse=True, scope="session")
+def disable_throttle_cache():
+    """Use a no-op cache for the entire test session so throttles never trigger."""
+    with override_settings(
+        CACHES={"default": {"BACKEND": "django.core.cache.backends.dummy.DummyCache"}}
+    ):
+        yield
 
 
 # ── User factories ────────────────────────────────────────────────────────────

@@ -553,3 +553,103 @@ class SafetyStockTaskTests(TestCase):
         self.assertFalse(
             SafetyStockBreachState.objects.filter(item=self.item, warehouse=self.wh).exists()
         )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RBAC permission tests
+# ─────────────────────────────────────────────────────────────────────────────
+
+class InventoryRBACTests(TestCase):
+    """
+    Verify that role-based access control is enforced correctly on inventory endpoints.
+    Unauthenticated → 401.  Wrong role → 403.  Correct role → 2xx.
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+        self.admin = create_user("rbac_admin", role=Role.ADMIN)
+        self.manager = create_user("rbac_manager", role=Role.INVENTORY_MANAGER)
+        self.analyst = create_user("rbac_analyst", role=Role.PROCUREMENT_ANALYST)
+        self.item = make_item(sku="RBAC001")
+        self.wh = make_warehouse("RBAC_WH")
+
+    def _auth(self, user):
+        # Use force_authenticate to bypass the login throttle in tests.
+        self.client.force_authenticate(user=user)
+
+    # ── Item creation ──────────────────────────────────────────────────────────
+
+    def test_analyst_cannot_create_item(self):
+        """PROCUREMENT_ANALYST must not create items (403)."""
+        self._auth(self.analyst)
+        resp = self.client.post("/api/items/", {
+            "sku": "NOAUTH01", "name": "Blocked", "unit_of_measure": "EA",
+            "costing_method": "MOVING_AVG",
+        })
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_manager_can_create_item(self):
+        """INVENTORY_MANAGER may create items (201)."""
+        self._auth(self.manager)
+        resp = self.client.post("/api/items/", {
+            "sku": "AUTH_ITEM01", "name": "Allowed", "unit_of_measure": "EA",
+            "costing_method": "MOVING_AVG",
+        })
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+
+    def test_unauthenticated_cannot_list_items(self):
+        """Unauthenticated requests must receive 401."""
+        self.client.credentials()
+        resp = self.client.get("/api/items/")
+        self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    # ── Stock receive ──────────────────────────────────────────────────────────
+
+    def test_analyst_cannot_receive_stock(self):
+        """PROCUREMENT_ANALYST must not post receipts (403)."""
+        self._auth(self.analyst)
+        resp = self.client.post("/api/inventory/receive/", {
+            "item_id": self.item.pk,
+            "warehouse_id": self.wh.pk,
+            "quantity": "10.0000",
+            "unit_cost": "5.00",
+        })
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_manager_can_receive_stock(self):
+        """INVENTORY_MANAGER may post receipts (201)."""
+        self._auth(self.manager)
+        resp = self.client.post("/api/inventory/receive/", {
+            "item_id": self.item.pk,
+            "warehouse_id": self.wh.pk,
+            "quantity": "10.0000",
+            "unit_cost": "5.00",
+        })
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+
+    # ── User management (Admin only) ───────────────────────────────────────────
+
+    def test_manager_cannot_list_users(self):
+        """Only ADMINs may access /api/users/ (403 for IM)."""
+        self._auth(self.manager)
+        resp = self.client.get("/api/users/")
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_can_list_users(self):
+        """ADMIN may list users (200)."""
+        self._auth(self.admin)
+        resp = self.client.get("/api/users/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+    def test_create_user_cannot_set_superuser(self):
+        """API user creation must never produce a superuser."""
+        self._auth(self.admin)
+        resp = self.client.post("/api/users/", {
+            "username": "trysuper", "password": "SafePass1234!",
+            "role": "INVENTORY_MANAGER", "is_superuser": True,
+        })
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        from accounts.models import User as U
+        u = U.objects.get(username="trysuper")
+        self.assertFalse(u.is_superuser)
+        self.assertFalse(u.is_staff)

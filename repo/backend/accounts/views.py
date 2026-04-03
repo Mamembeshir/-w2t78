@@ -22,6 +22,7 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import AuthenticationFailed, ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -43,9 +44,13 @@ class LoginView(APIView):
 
     Body: { "username": "...", "password": "..." }
     Returns: { "access": "...", "refresh": "...", "user": { id, username, role } }
+
+    Rate-limited to 5 attempts per minute per IP (ScopedRateThrottle: "login").
     """
 
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "login"
 
     def post(self, request):
         username = request.data.get("username", "").strip()

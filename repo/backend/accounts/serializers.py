@@ -47,6 +47,9 @@ class UserSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         password = validated_data.pop("password")
+        # Enforce safe defaults — API users can never become superusers or staff
+        validated_data.setdefault("is_staff", False)
+        validated_data["is_superuser"] = False
         user = User(**validated_data)
         user.set_password(password)  # hashes with Argon2
         user.save()
@@ -55,6 +58,9 @@ class UserSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         # Password changes go through the reset-password endpoint — never via PUT/PATCH
         validated_data.pop("password", None)
+        # Never allow elevation to superuser/staff via this endpoint
+        validated_data.pop("is_superuser", None)
+        validated_data.pop("is_staff", None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
