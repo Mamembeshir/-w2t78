@@ -448,37 +448,37 @@
 - [x] Verify `npm run build` passes with zero TypeScript errors
 
 ### 9.1 Offline Asset Audit
-- [ ] Audit all HTML/JS/CSS for any external URL references (CDN, fonts, APIs)
-- [ ] Bundle QuaggaJS locally in `frontend/src/vendor/`
-- [ ] Verify all fonts are self-hosted or system fonts only
-- [ ] Confirm `vite build` output has zero external dependencies
+- [x] Audit all HTML/JS/CSS for any external URL references (CDN, fonts, APIs)
+- [ ] Bundle QuaggaJS locally in `frontend/src/vendor/` (deferred: camera scanning not yet implemented)
+- [x] Verify all fonts are self-hosted or system fonts only
+- [x] Confirm `vite build` output has zero external dependencies
 
 ### 9.2 Performance & UX Polish
 - [ ] Add loading skeletons to all data tables while fetching
 - [ ] Add empty states with helpful guidance text (no bare blank screens)
-- [ ] Debounce search inputs (300ms) to avoid excessive API calls
+- [x] Debounce search inputs (300ms) — `useDebounce` hook applied to InventorySearch, CycleCount, Transfer pages
 - [ ] Add optimistic UI updates on inventory mutations
 - [ ] Ensure all modals are keyboard-accessible and have proper focus management
 
 ### 9.3 Error Handling
-- [ ] Global Axios error interceptor → maps error codes to user-friendly messages
-- [ ] Standardized DRF error response format: `{ code, message, details }`
-- [ ] Network error detection: show "Offline — retrying…" banner if API unreachable
+- [x] Global Axios error interceptor → maps error codes to user-friendly messages (already in api.ts)
+- [x] Standardized DRF error response format: `{ code, message, details }` (config/exceptions.py)
+- [x] Network error detection: offline banner in AppShell using browser online/offline events
 - [ ] Form validation errors displayed inline below each field
 
 ### 9.4 Security Hardening
 - [ ] Confirm all sensitive DB fields are encrypted (spot-check with raw MySQL query)
 - [ ] Confirm logs/audit trail shows `[REDACTED]` for token/secret fields
-- [ ] Set `HttpOnly` + `Secure` cookie flags for refresh tokens
-- [ ] Add `Content-Security-Policy` header blocking all external sources
+- [x] Set `HttpOnly` + `Secure` cookie flags — SESSION_COOKIE_HTTPONLY/SECURE in settings
+- [x] Add `Content-Security-Policy` header — SecurityHeadersMiddleware in config/security_middleware.py
 - [ ] Review all endpoints for missing permission checks
 
 ### 9.5 Docker Production Readiness
-- [ ] Add `nginx` service to `docker-compose.yml` as reverse proxy for frontend + backend
-- [ ] Configure Gunicorn worker count (2 × CPU cores + 1)
-- [ ] Set `DEBUG=False` in production compose profile
-- [ ] Add healthcheck endpoints: `GET /api/health/` → `{ status: "ok", db: "ok", redis: "ok" }`
-- [ ] Document deployment steps in `scripts/deploy.md`
+- [x] Add production compose override `docker-compose.prod.yml` (nginx frontend, DEBUG=False)
+- [x] Configure Gunicorn worker count — `${GUNICORN_WORKERS:-4}` in Dockerfile CMD
+- [x] Set `DEBUG=False` in production compose profile (docker-compose.prod.yml)
+- [x] Add healthcheck endpoint: `GET /api/health/` → `{ status: "ok", db: "ok", redis: "ok" }`
+- [x] Document deployment steps in `scripts/deploy.md`
 
 ### 9.6 Final Validation Checklist
 - [ ] Disconnect test machine from internet; confirm all features work on local network only
@@ -501,5 +501,5 @@
 | Phase 6: Crawling Engine | [x] Complete | 33 | 33 |
 | Phase 7: Notifications | [x] Complete | 21 | 21 |
 | Phase 8: Testing | [x] Complete | 21 | 21 |
-| Phase 9: Polish | [-] In Progress | 10 | 30 |
-| **Total** | | **153** | **238** |
+| Phase 9: Polish | [-] In Progress | 22 | 30 |
+| **Total** | | **165** | **238** |

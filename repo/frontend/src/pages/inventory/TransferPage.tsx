@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useDebounce } from '@/hooks/useDebounce'
 import { PageWrapper } from '@/components/layout/PageWrapper'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -12,6 +13,7 @@ export function TransferPage() {
   const toast = useToast()
 
   const [itemSearch, setItemSearch] = useState('')
+  const debouncedItemSearch = useDebounce(itemSearch)
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null)
   const [fromWarehouseId, setFromWarehouseId] = useState<number | null>(null)
   const [fromBinId, setFromBinId] = useState<number | null>(null)
@@ -21,7 +23,7 @@ export function TransferPage() {
   const [reference, setReference] = useState('')
   const [showConfirm, setShowConfirm] = useState(false)
 
-  const { data: itemsData } = useItems(itemSearch || undefined)
+  const { data: itemsData } = useItems(debouncedItemSearch || undefined)
   const { data: warehousesData } = useWarehouses()
   const { data: fromBinsData } = useBins(fromWarehouseId)
   const { data: toBinsData } = useBins(toWarehouseId)

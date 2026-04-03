@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useDebounce } from '@/hooks/useDebounce'
 import { PageWrapper } from '@/components/layout/PageWrapper'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
@@ -122,10 +123,11 @@ const ledgerColumns: Column<Record<string, unknown>>[] = [
 
 export function InventorySearchPage() {
   const [query, setQuery] = useState('')
+  const debouncedQuery = useDebounce(query)
   const [selectedItem, setSelectedItem] = useState<Item | null>(null)
   const [showLedger, setShowLedger] = useState(false)
 
-  const { data: itemsData, isLoading } = useItems(query || undefined)
+  const { data: itemsData, isLoading } = useItems(debouncedQuery || undefined)
   const { data: ledgerData } = useItemLedger(showLedger ? selectedItem?.id ?? null : null)
 
   return (

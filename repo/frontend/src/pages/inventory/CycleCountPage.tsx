@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useDebounce } from '@/hooks/useDebounce'
 import { PageWrapper } from '@/components/layout/PageWrapper'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -32,6 +33,7 @@ export function CycleCountPage() {
 
   // Step 1 form
   const [itemSearch, setItemSearch] = useState('')
+  const debouncedItemSearch = useDebounce(itemSearch)
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null)
   const [warehouseId, setWarehouseId] = useState<number | null>(null)
   const [binId, setBinId] = useState<number | null>(null)
@@ -43,7 +45,7 @@ export function CycleCountPage() {
   const [reasonCode, setReasonCode] = useState('')
   const [supervisorNote, setSupervisorNote] = useState('')
 
-  const { data: itemsData } = useItems(itemSearch || undefined)
+  const { data: itemsData } = useItems(debouncedItemSearch || undefined)
   const { data: warehousesData } = useWarehouses()
   const { data: binsData } = useBins(warehouseId)
   const startCount = useCycleCountStart()

@@ -1,0 +1,26 @@
+# docker-compose.prod.yml
+# Production overrides — use with:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Key differences from dev:
+#  - Frontend uses Nginx (production build), not Vite dev server
+#  - DEBUG=False forced for backend
+#  - Frontend no longer binds to host port (nginx is the public entry point)
+#  - Gunicorn workers scaled to 2x CPU + 1
+
+services:
+
+  backend:
+    environment:
+      DEBUG: "False"
+      GUNICORN_WORKERS: "5"   # adjust to 2 × (nproc) + 1 for your host
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: production
+    volumes: []              # no source mount in production
+    ports:
+      - "80:80"
+    environment: {}          # nginx serves static build — no VITE_ vars needed

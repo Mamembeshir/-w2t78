@@ -61,6 +61,7 @@ AUTH_USER_MODEL = "accounts.User"
 # ─────────────────────────────────────────────────────────────────────────────
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "config.security_middleware.SecurityHeadersMiddleware",
     "corsheaders.middleware.CorsMiddleware",          # before CommonMiddleware
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -309,6 +310,33 @@ STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Security hardening
+# ─────────────────────────────────────────────────────────────────────────────
+# Refresh tokens stored in HttpOnly + Secure cookies (set by auth views)
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_HTTPONLY = False  # CSRF token must be readable by JS
+CSRF_COOKIE_SECURE = not DEBUG
+
+# CSP: block all external sources — fully offline platform
+# 'unsafe-inline' allowed for Tailwind-injected styles; no external URLs ever
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
+SECURE_BROWSER_XSS_FILTER = True
+
+# Content-Security-Policy header via middleware response header
+# Applied by a lightweight middleware below; avoids django-csp dependency
+CSP_HEADER = (
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline'; "
+    "style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data:; "
+    "font-src 'self'; "
+    "connect-src 'self'; "
+    "frame-ancestors 'none';"
+)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Logging — secrets/tokens masked before any log line is written

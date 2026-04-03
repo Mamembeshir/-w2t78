@@ -6,12 +6,13 @@ from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
 from django.db import connection, OperationalError
+from django.core.cache import cache
 
 
 def health(request):
     """
     GET /api/health/
-    Returns 200 if Django + DB + basic config are healthy.
+    Returns 200 if Django + DB + Redis are healthy.
     Used by run_test.sh to gate service startup.
     """
     db_ok = True
@@ -20,12 +21,20 @@ def health(request):
     except OperationalError:
         db_ok = False
 
+    redis_ok = True
+    try:
+        cache.set("_health_probe", "1", timeout=5)
+        redis_ok = cache.get("_health_probe") == "1"
+    except Exception:
+        redis_ok = False
+
+    all_ok = db_ok and redis_ok
     payload = {
-        "status": "ok" if db_ok else "degraded",
+        "status": "ok" if all_ok else "degraded",
         "db": "ok" if db_ok else "error",
+        "redis": "ok" if redis_ok else "error",
     }
-    status_code = 200 if db_ok else 503
-    return JsonResponse(payload, status=status_code)
+    return JsonResponse(payload, status=200 if all_ok else 503)
 
 
 urlpatterns = [

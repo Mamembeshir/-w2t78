@@ -14,6 +14,15 @@ export function AppShell() {
     catch { return true }
   })
 
+  const [isOffline, setIsOffline] = useState(!navigator.onLine)
+  useEffect(() => {
+    const on = () => setIsOffline(false)
+    const off = () => setIsOffline(true)
+    window.addEventListener('online', on)
+    window.addEventListener('offline', off)
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
+  }, [])
+
   const sidebarWidth = expanded ? SIDEBAR_EXPANDED_WIDTH : SIDEBAR_COLLAPSED_WIDTH
 
   function toggle() {
@@ -39,6 +48,12 @@ export function AppShell() {
         style={{ paddingLeft: sidebarWidth, paddingTop: '3.5rem' /* h-14 = 56px */ }}
       >
         <TopBar sidebarWidth={sidebarWidth} />
+
+        {isOffline && (
+          <div className="bg-danger-900 border-b border-danger-700 px-4 py-2 text-sm text-danger-200 text-center">
+            Network unreachable — operating offline. Changes may not be saved until connectivity is restored.
+          </div>
+        )}
 
         <main className="flex-1">
           <Outlet />
