@@ -9,9 +9,9 @@ services:
         required: false
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-dev_root_pw}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-warehouse_db}
-      MYSQL_USER: ${MYSQL_USER:-warehouse_user}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-warehouse_pass}
+      MYSQL_DATABASE:      ${MYSQL_DATABASE:-warehouse_db}
+      MYSQL_USER:          ${MYSQL_USER:-warehouse_user}
+      MYSQL_PASSWORD:      ${MYSQL_PASSWORD:-warehouse_pass}
     volumes:
       - db_data:/var/lib/mysql
       - ./docker/mysql/init.sh:/docker-entrypoint-initdb.d/01-init.sh:ro
@@ -40,7 +40,10 @@ services:
       retries: 5
       start_period: 10s
 
-  # ── Django Backend (dev: runserver with auto-reload) ───────────────────────
+  # ── Django Backend ─────────────────────────────────────────────────────────
+  # Runs migrate + seed_users before starting the server, so the healthcheck
+  # below only passes once the schema is fully initialised.  Worker, beat, and
+  # frontend all gate on this healthcheck so they never start with a partial DB.
   backend:
     build:
       context: ./backend
@@ -50,15 +53,16 @@ services:
       - path: .env
         required: false
     environment:
-      DB_HOST: db
-      DB_NAME: ${DB_NAME:-warehouse_db}
-      DB_USER: ${DB_USER:-warehouse_user}
-      DB_PASSWORD: ${DB_PASSWORD:-warehouse_pass}
-      DB_PORT: ${DB_PORT:-3306}
-      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-insecure-dev-key-replace-before-any-real-use}
+      DEBUG:                "True"
+      DB_HOST:              db
+      DB_NAME:              ${DB_NAME:-warehouse_db}
+      DB_USER:              ${DB_USER:-warehouse_user}
+      DB_PASSWORD:          ${DB_PASSWORD:-warehouse_pass}
+      DB_PORT:              ${DB_PORT:-3306}
+      DJANGO_SECRET_KEY:    ${DJANGO_SECRET_KEY:-insecure-dev-key-replace-before-any-real-use}
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend,0.0.0.0}
-      REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/0
+      REDIS_URL:            redis://redis:6379/0
+      CELERY_BROKER_URL:    redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
     volumes:
       - ./backend:/app
@@ -69,14 +73,20 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    # Use Django's dev server so code changes are picked up without a restart.
-    # Production (docker-compose.prod.yml) overrides this with Gunicorn.
     command: >
       sh -c "python manage.py migrate --noinput &&
              python manage.py seed_users &&
              python manage.py runserver 0.0.0.0:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/api/health/"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 90s
 
   # ── Celery Worker ──────────────────────────────────────────────────────────
+  # Depends on backend being healthy so migrations are guaranteed complete
+  # before the worker imports any models.
   worker:
     build:
       context: ./backend
@@ -86,14 +96,16 @@ services:
       - path: .env
         required: false
     environment:
-      DB_HOST: db
-      DB_NAME: ${DB_NAME:-warehouse_db}
-      DB_USER: ${DB_USER:-warehouse_user}
-      DB_PASSWORD: ${DB_PASSWORD:-warehouse_pass}
-      DB_PORT: ${DB_PORT:-3306}
-      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-insecure-dev-key-replace-before-any-real-use}
-      REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/0
+      DEBUG:                "True"
+      DB_HOST:              db
+      DB_NAME:              ${DB_NAME:-warehouse_db}
+      DB_USER:              ${DB_USER:-warehouse_user}
+      DB_PASSWORD:          ${DB_PASSWORD:-warehouse_pass}
+      DB_PORT:              ${DB_PORT:-3306}
+      DJANGO_SECRET_KEY:    ${DJANGO_SECRET_KEY:-insecure-dev-key-replace-before-any-real-use}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend,0.0.0.0}
+      REDIS_URL:            redis://redis:6379/0
+      CELERY_BROKER_URL:    redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
     volumes:
       - ./backend:/app
@@ -102,13 +114,17 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      backend:
+        condition: service_healthy
     command: >
       celery -A config worker
         --loglevel=info
         --concurrency=4
         --queues=default,crawl.0,crawl.1,crawl.2,crawl.3,inventory,notifications
 
-  # ── Celery Beat (Scheduled Tasks) ─────────────────────────────────────────
+  # ── Celery Beat ────────────────────────────────────────────────────────────
+  # DatabaseScheduler reads django_celery_beat_* tables — these only exist
+  # after backend runs migrate.  Gate on backend healthy to prevent the crash.
   beat:
     build:
       context: ./backend
@@ -118,14 +134,16 @@ services:
       - path: .env
         required: false
     environment:
-      DB_HOST: db
-      DB_NAME: ${DB_NAME:-warehouse_db}
-      DB_USER: ${DB_USER:-warehouse_user}
-      DB_PASSWORD: ${DB_PASSWORD:-warehouse_pass}
-      DB_PORT: ${DB_PORT:-3306}
-      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-insecure-dev-key-replace-before-any-real-use}
-      REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/0
+      DEBUG:                "True"
+      DB_HOST:              db
+      DB_NAME:              ${DB_NAME:-warehouse_db}
+      DB_USER:              ${DB_USER:-warehouse_user}
+      DB_PASSWORD:          ${DB_PASSWORD:-warehouse_pass}
+      DB_PORT:              ${DB_PORT:-3306}
+      DJANGO_SECRET_KEY:    ${DJANGO_SECRET_KEY:-insecure-dev-key-replace-before-any-real-use}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend,0.0.0.0}
+      REDIS_URL:            redis://redis:6379/0
+      CELERY_BROKER_URL:    redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
     volumes:
       - ./backend:/app
@@ -134,12 +152,15 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      backend:
+        condition: service_healthy
     command: >
       celery -A config beat
         --loglevel=info
         --scheduler django_celery_beat.schedulers:DatabaseScheduler
 
   # ── React Frontend (Vite dev server) ──────────────────────────────────────
+  # Gates on backend healthy so the API is reachable when the UI loads.
   frontend:
     build:
       context: ./frontend
@@ -153,12 +174,12 @@ services:
       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
     volumes:
       - ./frontend:/app
-      # Keep node_modules from host override (anonymous volume trick)
       - /app/node_modules
     ports:
       - "5173:5173"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
 volumes:
   db_data:

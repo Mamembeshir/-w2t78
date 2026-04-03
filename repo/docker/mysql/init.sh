@@ -4,6 +4,11 @@
 # Creates the test database and grants the application user access to it.
 set -e
 
+# Fail fast if required env vars are missing — prevents silent SQL errors
+[ -z "$MYSQL_ROOT_PASSWORD" ] && echo "ERROR: MYSQL_ROOT_PASSWORD is not set" && exit 1
+[ -z "$MYSQL_DATABASE" ]      && echo "ERROR: MYSQL_DATABASE is not set"      && exit 1
+[ -z "$MYSQL_USER" ]          && echo "ERROR: MYSQL_USER is not set"           && exit 1
+
 echo "[init.sh] Creating test database: ${MYSQL_DATABASE}_test"
 
 mysql -u root -p"${MYSQL_ROOT_PASSWORD}" <<-EOSQL
