@@ -241,3 +241,59 @@ All 34 tasks across 1.1–1.5 are done. The full stack runs via `./run_test.sh s
 **Phase 2 — Backend: Django + MySQL + Core Models**: Django apps, abstract base models, all domain models (User/Role, Warehouse/Bin, Item/Lot/Serial, StockLedger/Balance, CrawlSource/RuleVersion/Task, Notifications, AuditLog).
 
 ---
+
+### Session 6 — Phase 2: Backend Core Models
+**Date:** 2026-04-03
+**Phase:** 2.1–2.9 Backend — Django + MySQL + Core Models
+**Status:** Complete ✓
+
+#### What Was Completed
+- `core/__init__.py`, `core/managers.py` — `ActiveManager` (excludes soft-deleted) + `AllObjectsManager`
+- `core/models.py` — `TimeStampedModel` (created_at/updated_at) and `SoftDeleteModel` (deleted_at, soft `.delete()`, `.restore()`, `.hard_delete()`)
+- `accounts/models.py` — custom `User(AbstractUser)` with `Role` TextChoices: ADMIN / INVENTORY_MANAGER / PROCUREMENT_ANALYST; `AUTH_USER_MODEL = "accounts.User"` added to settings
+- `warehouse/models.py` — `Warehouse` (code unique, soft-deletable) + `Bin` (warehouse FK, code, unique_together)
+- `inventory/models.py` — `Item` (SKU, costing method FIFO/MOVING_AVG, safety_stock_qty), `ItemLot`, `ItemSerial` (with SerialStatus choices), `StockLedger` (immutable transaction rows, 5 transaction types, composite indexes), `StockBalance` (denormalised on-hand + reserved + avg_cost)
+- `crawling/models.py` — `CrawlSource`, `CrawlRuleVersion` (canary fields, `EncryptedTextField` for request_headers), `CrawlTask` (fingerprint unique, exponential backoff fields, checkpoint_page), `CrawlRequestLog`, `SourceQuota` (held_until for 15-min auto-release)
+- `notifications/models.py` — `NotificationSubscription`, `Notification`, `OutboundMessage` (SMTP/SMS, QUEUED/SENT/FAILED), `DigestSchedule` (18:00 default)
+- `audit/models.py` — `AuditLog` (immutable: `.save()` raises if pk set, `.delete()` raises), + `purge_old_audit_logs` Celery task (nightly at 02:00, deletes rows > 365 days via queryset bulk delete)
+- All 6 `admin.py` files registered with list_display, search, filters; `AuditLogAdmin` is fully read-only with no add/change/delete permissions
+- `settings.py` updated: all 6 apps uncommented in `INSTALLED_APPS`; `AUTH_USER_MODEL`; `CELERY_BEAT_SCHEDULE` with nightly purge job
+- DB volume reset (required for custom User model), `makemigrations` generated 0001_initial for all 6 apps, `migrate` applied all 65+ migrations cleanly
+- Verified: 36 tables in `warehouse_db`, `/api/health/` → `{"status":"ok","db":"ok"}`
+
+#### Decisions Made
+- **DB volume reset**: `AUTH_USER_MODEL` must be set before any migration. Volume was dropped and recreated from init.sh — no data loss since no production data yet.
+- **`SoftDeleteModel.delete()` overrides only the instance method**: `QuerySet.delete()` (used in the purge task) issues SQL directly via Collector and does NOT invoke the instance `.delete()` — so the purge task safely bypasses the immutability guard on `AuditLog`.
+- **`EncryptedTextField` on `request_headers`**: Per CLAUDE.md §8, crawl rule secrets/headers encrypted at rest. Stored as a single encrypted text blob (JSON-serialised by the caller).
+- **`crontab` import in settings.py**: Celery's `crontab` imported at module level in `settings.py` for `CELERY_BEAT_SCHEDULE`. Import guarded by the fact that `celery` is already a dependency; no circular import since celery is not imported by Django before apps load.
+- **`AuditLog` immutability**: `save()` raises `NotImplementedError` on updates (pk is set); `delete()` raises on instance delete. Django admin is fully read-only (no add/change/delete permissions).
+
+#### Files Changed
+| File | Action |
+|---|---|
+| `backend/core/__init__.py` | Created |
+| `backend/core/managers.py` | Created |
+| `backend/core/models.py` | Created |
+| `backend/accounts/models.py` | Written |
+| `backend/accounts/admin.py` | Written |
+| `backend/warehouse/models.py` | Written |
+| `backend/warehouse/admin.py` | Written |
+| `backend/inventory/models.py` | Written |
+| `backend/inventory/admin.py` | Written |
+| `backend/crawling/models.py` | Written |
+| `backend/crawling/admin.py` | Written |
+| `backend/notifications/models.py` | Written |
+| `backend/notifications/admin.py` | Written |
+| `backend/audit/models.py` | Written |
+| `backend/audit/admin.py` | Written |
+| `backend/config/settings.py` | Updated (INSTALLED_APPS, AUTH_USER_MODEL, CELERY_BEAT_SCHEDULE) |
+| `backend/*/migrations/0001_initial.py` | Generated (6 files) |
+| `PLAN.md` | Updated (Phase 2 marked complete) |
+
+#### Phase 2 Complete
+All 27 tasks across 2.1–2.9 done. 36 tables in warehouse_db, health endpoint OK.
+
+#### Next Phase
+**Phase 3 — Authentication & RBAC**: JWT login/logout/refresh endpoints, IsAdmin/IsInventoryManager/IsProcurementAnalyst permission classes, audit middleware, user management API.
+
+---

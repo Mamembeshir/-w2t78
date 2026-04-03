@@ -59,57 +59,57 @@
 ## Phase 2: Backend — Django + MySQL + Core Models
 
 ### 2.1 App Structure
-- [ ] Create Django apps: `accounts`, `warehouse`, `inventory`, `crawling`, `notifications`, `audit`
-- [ ] Register all apps in `settings.py`
-- [ ] Create shared `core/` module for base models, encryption helpers, and utilities
+- [x] Create Django apps: `accounts`, `warehouse`, `inventory`, `crawling`, `notifications`, `audit`
+- [x] Register all apps in `settings.py`
+- [x] Create shared `core/` module for base models, encryption helpers, and utilities
 
 ### 2.2 Core Base Models
-- [ ] Create `TimeStampedModel` abstract base (created_at, updated_at)
-- [ ] Create `SoftDeleteModel` abstract base (deleted_at, is_deleted)
-- [ ] Create encrypted field wrapper using `django-encrypted-model-fields`
-- [ ] Write and run initial migration for base setup
+- [x] Create `TimeStampedModel` abstract base (created_at, updated_at)
+- [x] Create `SoftDeleteModel` abstract base (deleted_at, is_deleted)
+- [x] Create encrypted field wrapper using `django-encrypted-model-fields`
+- [x] Write and run initial migration for base setup
 
 ### 2.3 User & Role Models (`accounts` app)
-- [ ] `User` model: username, argon2 password, role, is_active, last_login
-- [ ] `Role` choices: `ADMIN`, `INVENTORY_MANAGER`, `PROCUREMENT_ANALYST`
-- [ ] Write migration and verify in Django admin
+- [x] `User` model: username, argon2 password, role, is_active, last_login
+- [x] `Role` choices: `ADMIN`, `INVENTORY_MANAGER`, `PROCUREMENT_ANALYST`
+- [x] Write migration and verify in Django admin
 
 ### 2.4 Warehouse & Bin Models (`warehouse` app)
-- [ ] `Warehouse`: id, name, code, address, is_active
-- [ ] `Bin`: id, warehouse FK, code, description, is_active
-- [ ] Write migration and register in admin
+- [x] `Warehouse`: id, name, code, address, is_active
+- [x] `Bin`: id, warehouse FK, code, description, is_active
+- [x] Write migration and register in admin
 
 ### 2.5 Item & SKU Models (`inventory` app)
-- [ ] `Item`: id, sku, name, description, unit_of_measure, costing_method (FIFO/MOVING_AVG), safety_stock_qty, is_active
-- [ ] `ItemLot`: id, item FK, lot_number, expiry_date, received_date
-- [ ] `ItemSerial`: id, item FK, serial_number, status
-- [ ] Write migration and register in admin
+- [x] `Item`: id, sku, name, description, unit_of_measure, costing_method (FIFO/MOVING_AVG), safety_stock_qty, is_active
+- [x] `ItemLot`: id, item FK, lot_number, expiry_date, received_date
+- [x] `ItemSerial`: id, item FK, serial_number, status
+- [x] Write migration and register in admin
 
 ### 2.6 Inventory Ledger Models (`inventory` app)
-- [ ] `StockLedger`: id, item FK, warehouse FK, bin FK, lot FK, quantity, unit_cost, costing_method, transaction_type, reference, timestamp
-- [ ] Transaction types: `RECEIVE`, `ISSUE`, `TRANSFER_OUT`, `TRANSFER_IN`, `CYCLE_COUNT_ADJUST`
-- [ ] `StockBalance`: id, item FK, warehouse FK, bin FK, quantity_on_hand, quantity_reserved, avg_cost (denormalized, updated on each transaction)
-- [ ] Write migration
+- [x] `StockLedger`: id, item FK, warehouse FK, bin FK, lot FK, quantity, unit_cost, costing_method, transaction_type, reference, timestamp
+- [x] Transaction types: `RECEIVE`, `ISSUE`, `TRANSFER_OUT`, `TRANSFER_IN`, `CYCLE_COUNT_ADJUST`
+- [x] `StockBalance`: id, item FK, warehouse FK, bin FK, quantity_on_hand, quantity_reserved, avg_cost (denormalized, updated on each transaction)
+- [x] Write migration
 
 ### 2.7 Crawling Models (`crawling` app)
-- [ ] `CrawlSource`: id, name, base_url, is_active, rate_limit_rpm, crawl_delay_seconds, user_agents (JSON), created_by FK
-- [ ] `CrawlRuleVersion`: id, source FK, version_number, version_note, url_pattern, parameters (JSON), pagination_config (JSON), request_headers (encrypted JSON), is_active, is_canary, canary_pct, canary_started_at, created_by FK
-- [ ] `CrawlTask`: id, source FK, rule_version FK, fingerprint (unique), url, status, priority, attempt_count, next_retry_at, checkpoint_page, last_error, created_at, started_at, completed_at
-- [ ] `CrawlRequestLog`: id, task FK, request_url, request_headers (masked), response_status, response_snippet, duration_ms, timestamp
-- [ ] `SourceQuota`: id, source FK, rpm_limit, current_count, window_start, held_until (for timeout release)
-- [ ] Write migrations
+- [x] `CrawlSource`: id, name, base_url, is_active, rate_limit_rpm, crawl_delay_seconds, user_agents (JSON), created_by FK
+- [x] `CrawlRuleVersion`: id, source FK, version_number, version_note, url_pattern, parameters (JSON), pagination_config (JSON), request_headers (encrypted JSON), is_active, is_canary, canary_pct, canary_started_at, created_by FK
+- [x] `CrawlTask`: id, source FK, rule_version FK, fingerprint (unique), url, status, priority, attempt_count, next_retry_at, checkpoint_page, last_error, created_at, started_at, completed_at
+- [x] `CrawlRequestLog`: id, task FK, request_url, request_headers (masked), response_status, response_snippet, duration_ms, timestamp
+- [x] `SourceQuota`: id, source FK, rpm_limit, current_count, window_start, held_until (for timeout release)
+- [x] Write migrations
 
 ### 2.8 Notification Models (`notifications` app)
-- [ ] `NotificationSubscription`: id, user FK, event_type, threshold_value, is_active
-- [ ] `Notification`: id, user FK, event_type, title, body, is_read, read_at, created_at
-- [ ] `OutboundMessage`: id, notification FK, channel (SMTP/SMS), status, queued_at, sent_at, error
-- [ ] `DigestSchedule`: id, user FK, send_time (default 18:00), last_sent_at
-- [ ] Write migration
+- [x] `NotificationSubscription`: id, user FK, event_type, threshold_value, is_active
+- [x] `Notification`: id, user FK, event_type, title, body, is_read, read_at, created_at
+- [x] `OutboundMessage`: id, notification FK, channel (SMTP/SMS), status, queued_at, sent_at, error
+- [x] `DigestSchedule`: id, user FK, send_time (default 18:00), last_sent_at
+- [x] Write migration
 
 ### 2.9 Audit Models (`audit` app)
-- [ ] `AuditLog`: id, user FK, action, model_name, object_id, changes (JSON), ip_address, timestamp
-- [ ] Automatic purge: Celery beat task deletes records older than 365 days
-- [ ] Write migration
+- [x] `AuditLog`: id, user FK, action, model_name, object_id, changes (JSON), ip_address, timestamp
+- [x] Automatic purge: Celery beat task deletes records older than 365 days
+- [x] Write migration
 
 ---
 

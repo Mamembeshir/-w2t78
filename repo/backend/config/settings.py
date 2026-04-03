@@ -42,14 +42,19 @@ INSTALLED_APPS = [
     "corsheaders",
     "django_celery_beat",
     "django_celery_results",
-    # Project apps — registered in Phase 2
-    # "accounts",
-    # "warehouse",
-    # "inventory",
-    # "crawling",
-    # "notifications",
-    # "audit",
+    # Project apps
+    "accounts",
+    "warehouse",
+    "inventory",
+    "crawling",
+    "notifications",
+    "audit",
 ]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Custom user model — must be set before first migration
+# ─────────────────────────────────────────────────────────────────────────────
+AUTH_USER_MODEL = "accounts.User"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Middleware
@@ -231,6 +236,18 @@ CELERY_TASK_ROUTES = {
     "crawling.tasks.*": {"queue": "crawl"},
     "inventory.tasks.*": {"queue": "inventory"},
     "notifications.tasks.*": {"queue": "notifications"},
+    "audit.purge_old_audit_logs": {"queue": "notifications"},
+}
+
+# Periodic task schedule — stored in DB via django_celery_beat DatabaseScheduler
+from celery.schedules import crontab  # noqa: E402
+
+CELERY_BEAT_SCHEDULE = {
+    # Nightly audit purge at 02:00 UTC — removes rows older than 365 days
+    "purge-old-audit-logs": {
+        "task": "audit.purge_old_audit_logs",
+        "schedule": crontab(hour=2, minute=0),
+    },
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
