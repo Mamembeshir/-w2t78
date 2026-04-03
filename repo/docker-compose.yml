@@ -92,7 +92,6 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-warehouse_pass}
       DB_PORT: ${DB_PORT:-3306}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-insecure-dev-key-replace-before-any-real-use}
-      FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:-yJ7SB6N0BHk2PUlnL_6W2cmTQVbbtB83dr9JOwbr5l0=}
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
@@ -125,7 +124,6 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-warehouse_pass}
       DB_PORT: ${DB_PORT:-3306}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-insecure-dev-key-replace-before-any-real-use}
-      FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:-yJ7SB6N0BHk2PUlnL_6W2cmTQVbbtB83dr9JOwbr5l0=}
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
