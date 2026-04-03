@@ -85,6 +85,9 @@ class CrawlSourceViewSet(
         source = self.get_object()
 
         if request.method == "POST":
+            if not IsProcurementAnalyst().has_permission(request, self):
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied()
             ser = CrawlRuleVersionCreateSerializer(data=request.data)
             ser.is_valid(raise_exception=True)
 
