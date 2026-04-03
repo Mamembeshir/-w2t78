@@ -34,11 +34,13 @@
 - [x] Subcommands: start, stop, restart, build, logs [svc], status, test, shell
 
 ### 1.4 Backend Bootstrap
-- [ ] Initialize Django 5 project inside `backend/`
-- [ ] Install dependencies: `djangorestframework`, `mysqlclient`, `celery`, `redis`, `argon2-cffi`, `django-encrypted-model-fields`
-- [ ] Create `requirements.txt` pinned to exact versions
-- [ ] Configure `settings.py`: MySQL connection, Argon2 password hasher, CORS for local frontend
-- [ ] Verify `python manage.py migrate` runs cleanly
+- [x] Initialize Django 5 project inside `backend/` (manage.py, config package)
+- [x] Install dependencies: `djangorestframework`, `mysqlclient`, `celery`, `redis`, `argon2-cffi`, `django-encrypted-model-fields` (pinned in requirements.txt)
+- [x] Create `requirements.txt` pinned to exact versions
+- [x] Configure `settings.py`: MySQL + TEST db, Argon2 hasher, DRF + JWT, CORS, Redis cache, encrypted fields, masked logging
+- [x] Add `config/exceptions.py`: standardized `{ code, message, details }` error format
+- [x] Add `config/logging_filters.py`: MaskSecretsFilter redacts tokens/keys/passwords in all logs
+- [x] Verify `python manage.py migrate` runs cleanly — all migrations [X] including token_blacklist, celery_beat, celery_results
 
 ### 1.5 Frontend Bootstrap
 - [ ] Initialize Vite + React 19 + TypeScript project inside `frontend/`
@@ -474,7 +476,7 @@
 
 | Phase | Status | Tasks Done | Tasks Total |
 |---|---|---|---|
-| Phase 1: Setup + Docker | [-] In Progress | 17 | 18 |
+| Phase 1: Setup + Docker | [-] In Progress | 24 | 25 |
 | Phase 2: Backend Models | [ ] Pending | 0 | 29 |
 | Phase 3: Auth & RBAC | [ ] Pending | 0 | 11 |
 | Phase 4: Frontend Core | [ ] Pending | 0 | 22 |
@@ -483,4 +485,4 @@
 | Phase 7: Notifications | [ ] Pending | 0 | 21 |
 | Phase 8: Testing | [ ] Pending | 0 | 21 |
 | Phase 9: Polish | [ ] Pending | 0 | 20 |
-| **Total** | | **17** | **211** |
+| **Total** | | **24** | **218** |

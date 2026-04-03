@@ -138,3 +138,47 @@ repo/
 **Phase 1.4 — Backend Bootstrap**: Expand Django settings with full configuration (Argon2, DRF, CORS, encrypted fields), verify `python manage.py migrate` runs cleanly.
 
 ---
+
+### Session 4 — Phase 1.4: Backend Bootstrap
+**Date:** 2026-04-03
+**Phase:** 1.4 Backend Bootstrap
+**Status:** Complete
+
+#### What Was Completed
+- `config/settings.py` fully expanded (stub → production-ready):
+  - **Argon2** as primary password hasher (PBKDF2 as legacy fallback only)
+  - **DRF** with JWT authentication, IsAuthenticated default, PageNumberPagination (50/page)
+  - **JWT**: 15-min access tokens, 8h refresh, rotate+blacklist on rotation
+  - **CORS**: `CORS_ALLOWED_ORIGINS` from env, `CORS_ALLOW_ALL_ORIGINS = False` (explicit)
+  - **Redis cache** on `redis://redis:6379/0`
+  - **FIELD_ENCRYPTION_KEY** wired from env for `django-encrypted-model-fields`
+  - **TEST database**: `warehouse_db_test` (pre-created by init.sh, avoids needing CREATE privilege)
+  - **Masked logging**: `MaskSecretsFilter` applied to console handler — no secret reaches stdout
+  - **Celery** task routes: crawl/inventory/notifications queues pre-defined
+  - **Optional SMTP/SMS gateways**: env vars wired, empty = in-app only
+- `config/exceptions.py`: custom DRF exception handler → `{ code, message, details }`
+- `config/logging_filters.py`: `MaskSecretsFilter` with 3-pattern regex covering Auth headers, JSON values, query-string/env var secrets
+- `config/urls.py`: health endpoint upgraded — checks real DB connection, returns `{ status, db }`
+- `python manage.py migrate` verified: all 50+ migrations applied cleanly (`[X]` on every migration)
+- Argon2 verified active: `argon2$argon2id$v=19...` prefix confirmed
+- Logging masking verified: Bearer tokens, passwords, API keys, FIELD_ENCRYPTION_KEY all → `[REDACTED]`
+
+#### Decisions Made
+- **TEST db via `TEST.NAME` key**: Used `DATABASES["default"]["TEST"]["NAME"] = "warehouse_db_test"` rather than a separate `"test"` alias. This is Django's canonical approach and lets `./manage.py test` use the pre-created test DB without needing CREATE DATABASE privilege on the MySQL user.
+- **PBKDF2 as fallback**: Kept PBKDF2 second in `PASSWORD_HASHERS` only to handle any pre-existing hashes if the user switches from another system — Django transparently re-hashes on next login. Argon2 is always used for new passwords.
+- **3-pattern masking order**: JSON-specific pattern runs before general key=value pattern to avoid consuming trailing commas/quotes. Verified correct output.
+- **`CORS_ALLOW_ALL_ORIGINS = False` explicit**: Belt-and-suspenders — even if `CORS_ALLOWED_ORIGINS` is misconfigured, wildcard is never active.
+
+#### Files Changed
+| File | Action |
+|---|---|
+| `backend/config/settings.py` | Fully rewritten (stub → production) |
+| `backend/config/exceptions.py` | Created |
+| `backend/config/logging_filters.py` | Created |
+| `backend/config/urls.py` | Updated (health checks real DB) |
+| `PLAN.md` | Updated (1.4 tasks marked complete) |
+
+#### Next Phase
+**Phase 1.5 — Frontend Bootstrap**: Full TailwindCSS dark theme config, React Router, Axios, React Query, verified `vite dev` on local network.
+
+---
