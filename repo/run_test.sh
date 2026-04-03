@@ -13,8 +13,10 @@
 #   ./run_test.sh logs       Tail logs for all services
 #   ./run_test.sh logs <svc> Tail logs for one service (e.g. backend)
 #   ./run_test.sh status     Show container status
-#   ./run_test.sh test       Run backend test suite (real DB, no mocking)
-#   ./run_test.sh shell      Open Django shell inside backend container
+#   ./run_test.sh test              Run backend test suite (real DB, no mocking)
+#   ./run_test.sh test-frontend     Run frontend Vitest suite
+#   ./run_test.sh test-all          Run backend + frontend test suites
+#   ./run_test.sh shell             Open Django shell inside backend container
 # =============================================================================
 
 set -euo pipefail
@@ -215,7 +217,7 @@ print_urls() {
   echo -e "    ${BOLD}./run_test.sh logs${RESET}           — tail all logs"
   echo -e "    ${BOLD}./run_test.sh logs backend${RESET}   — tail backend only"
   echo -e "    ${BOLD}./run_test.sh status${RESET}         — show container status"
-  echo -e "    ${BOLD}./run_test.sh test${RESET}           — run test suite"
+  echo -e "    ${BOLD}./run_test.sh test-all${RESET}       — run full test suite (backend + frontend)"
   echo -e "    ${BOLD}./run_test.sh stop${RESET}           — stop all services"
   echo ""
 }
@@ -306,6 +308,26 @@ cmd_test() {
   "
 }
 
+cmd_test_frontend() {
+  header "Running frontend test suite (Vitest)"
+
+  # Ensure frontend container is up
+  if ! $COMPOSE ps frontend 2>/dev/null | grep -q "Up\|running"; then
+    warn "Frontend container not running — starting it first..."
+    $COMPOSE up -d frontend
+    load_ports
+    wait_for_port "Vite dev server" "localhost" "${FRONTEND_PORT:-5173}" "$FRONTEND_TIMEOUT"
+  fi
+
+  info "Running: vitest run inside frontend container"
+  $COMPOSE exec frontend npm run test
+}
+
+cmd_test_all() {
+  cmd_test
+  cmd_test_frontend
+}
+
 cmd_shell() {
   header "Opening Django shell in backend container"
   $COMPOSE exec backend python manage.py shell
@@ -325,12 +347,14 @@ main() {
     build)   cmd_build ;;
     logs)    cmd_logs "${1:-}" ;;
     status)  cmd_status ;;
-    test)    cmd_test ;;
-    shell)   cmd_shell ;;
+    test)            cmd_test ;;
+    test-frontend)   cmd_test_frontend ;;
+    test-all)        cmd_test_all ;;
+    shell)           cmd_shell ;;
     *)
       error "Unknown command: $cmd"
       echo ""
-      echo "Usage: $0 [start|stop|restart|build|logs|status|test|shell]"
+      echo "Usage: $0 [start|stop|restart|build|logs|status|test|test-frontend|test-all|shell]"
       exit 1
       ;;
   esac
