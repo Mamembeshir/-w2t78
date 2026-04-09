@@ -39,8 +39,18 @@ def _get_secret_key() -> str:
                     "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(64))\""
                 )
         return value
+
+    # No key provided — decide based on context:
+    #   • pytest / manage.py test  → stable test-only string (keeps tests deterministic)
+    #   • DEBUG=True (dev / CI)    → ephemeral random key per process (fine for CI,
+    #                                acceptable for dev; set a real key in .env for
+    #                                stable local sessions)
+    #   • DEBUG=False (production) → hard error — never run prod without a real key
     if _testing_early:
         return "test-only-secret-key-not-for-production-do-not-use-outside-ci"
+    if os.environ.get("DEBUG", "False") == "True":
+        import secrets as _secrets
+        return _secrets.token_urlsafe(64)
     from django.core.exceptions import ImproperlyConfigured
     raise ImproperlyConfigured(
         "DJANGO_SECRET_KEY environment variable is not set. "
