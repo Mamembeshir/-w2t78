@@ -83,7 +83,7 @@ _generate_env_secrets() {
   django_key=$(python3 -c "import secrets; print(secrets.token_urlsafe(64))")
 
   local fernet_key
-  fernet_key=$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+  fernet_key=$(python3 -c "import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())")
 
   local db_password
   db_password=$(_rand_pw)
