@@ -19,7 +19,14 @@ def _get_secret_key() -> str:
     Test runs (manage.py test / pytest) use a dedicated test-only placeholder.
     """
     import sys as _sys_early
-    _testing_early = "test" in _sys_early.argv or "pytest" in _sys_early.modules
+    # CI=true is injected by GitHub Actions, GitLab CI, Bitbucket Pipelines, etc.
+    # run_test.sh also passes -e CI=true for local test runs without a .env file.
+    _ci_mode = os.environ.get("CI", "").lower() in ("true", "1", "yes")
+    _testing_early = (
+        "test" in _sys_early.argv
+        or "pytest" in _sys_early.modules
+        or _ci_mode
+    )
 
     _PLACEHOLDER_PATTERNS = (
         "change_me",
