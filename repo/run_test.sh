@@ -71,6 +71,37 @@ check_docker() {
   fi
 }
 
+# Replace CHANGE_ME placeholders in .env with auto-generated values.
+# Called when .env is freshly copied from .env.example (e.g. in CI).
+_generate_env_secrets() {
+  info "Auto-generating secrets for CHANGE_ME placeholders..."
+
+  # Random password (32 chars, URL-safe)
+  _rand_pw() { python3 -c "import secrets; print(secrets.token_urlsafe(32))" 2>/dev/null || openssl rand -base64 32 | tr -d '/+=' | head -c 32; }
+
+  local django_key
+  django_key=$(python3 -c "import secrets; print(secrets.token_urlsafe(64))")
+
+  local fernet_key
+  fernet_key=$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+
+  local db_password
+  db_password=$(_rand_pw)
+
+  local root_password
+  root_password=$(_rand_pw)
+
+  # Replace all CHANGE_ME values
+  sed -i.bak "s|DJANGO_SECRET_KEY=CHANGE_ME.*|DJANGO_SECRET_KEY=${django_key}|" "$ENV_FILE"
+  sed -i.bak "s|FIELD_ENCRYPTION_KEY=CHANGE_ME.*|FIELD_ENCRYPTION_KEY=${fernet_key}|" "$ENV_FILE"
+  sed -i.bak "s|MYSQL_ROOT_PASSWORD=CHANGE_ME.*|MYSQL_ROOT_PASSWORD=${root_password}|" "$ENV_FILE"
+  sed -i.bak "s|DB_PASSWORD=CHANGE_ME.*|DB_PASSWORD=${db_password}|" "$ENV_FILE"
+  sed -i.bak "s|MYSQL_PASSWORD=CHANGE_ME.*|MYSQL_PASSWORD=${db_password}|" "$ENV_FILE"
+  rm -f "${ENV_FILE}.bak"
+
+  success "Secrets generated and written to .env"
+}
+
 # Full check — also validates the .env file.
 # Used by start/build so the stack is never launched with placeholder secrets.
 check_prerequisites() {
@@ -82,8 +113,9 @@ check_prerequisites() {
   # .env file
   if [[ ! -f "$ENV_FILE" ]]; then
     if [[ -f "$ENV_EXAMPLE" ]]; then
-      warn ".env not found — copying from .env.example"
+      warn ".env not found — copying from .env.example and generating secrets"
       cp "$ENV_EXAMPLE" "$ENV_FILE"
+      _generate_env_secrets
       warn "Review .env and set real secrets before production use."
     else
       error ".env file missing and no .env.example to copy from."
