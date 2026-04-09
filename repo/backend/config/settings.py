@@ -320,7 +320,8 @@ def _resolve_encryption_key() -> str:
         except Exception:
             pass
 
-    if _TESTING:
+    # Test runner or DEBUG=True (dev / CI without .env) → use dev fallback key
+    if _TESTING or os.environ.get("DEBUG", "False") == "True":
         return _DEV_FERNET_KEY
 
     from django.core.exceptions import ImproperlyConfigured
