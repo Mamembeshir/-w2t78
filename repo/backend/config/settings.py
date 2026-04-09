@@ -288,46 +288,28 @@ CORS_ALLOW_ALL_ORIGINS = False  # explicit: never wildcard
 # Covers: supplier credentials, crawl rule secrets, API keys, tokens
 # Generate key: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 # ─────────────────────────────────────────────────────────────────────────────
-# Dev/CI fallback — a valid Fernet key used when FIELD_ENCRYPTION_KEY is not
-# set or is set to a placeholder.  Never use this value in production.
-_DEV_FERNET_KEY = "yJ7SB6N0BHk2PUlnL_6W2cmTQVbbtB83dr9JOwbr5l0="
-
-
 def _resolve_encryption_key() -> str:
     """Return a valid Fernet key.
 
-    In test runs, falls back to the embedded dev key so CI requires no secrets.
-    In production, raises ImproperlyConfigured when:
-      - FIELD_ENCRYPTION_KEY is absent or malformed
-      - the value is the publicly known dev key (_DEV_FERNET_KEY)
-      - the value begins with "CHANGE_ME" (copied from .env.example verbatim)
+    In test / DEBUG=True mode without a key, generates an ephemeral one.
+    In production (DEBUG=False), raises ImproperlyConfigured when absent.
     """
     from cryptography.fernet import Fernet
     candidate = os.environ.get("FIELD_ENCRYPTION_KEY", "").strip()
 
-    # A candidate is usable only when it is non-empty, not a placeholder, and
-    # not the publicly known dev fallback key.
-    is_usable = (
-        candidate
-        and not candidate.upper().startswith("CHANGE_ME")
-        and candidate != _DEV_FERNET_KEY
-    )
-
-    if is_usable:
+    if candidate and not candidate.upper().startswith("CHANGE_ME"):
         try:
-            Fernet(candidate)   # raises ValueError if key is malformed
+            Fernet(candidate)
             return candidate
         except Exception:
             pass
 
-    # Test runner or DEBUG=True (dev / CI without .env) → use dev fallback key
     if _TESTING or os.environ.get("DEBUG", "False") == "True":
-        return _DEV_FERNET_KEY
+        return Fernet.generate_key().decode()
 
     from django.core.exceptions import ImproperlyConfigured
     raise ImproperlyConfigured(
-        "FIELD_ENCRYPTION_KEY is not set, is a placeholder (CHANGE_ME…), or uses "
-        "the publicly known dev key. Generate a real key with: "
+        "FIELD_ENCRYPTION_KEY is not set or is a placeholder. Generate one with: "
         "python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
     )
 
