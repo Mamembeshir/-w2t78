@@ -59,12 +59,11 @@ services:
       DB_USER:              ${DB_USER:-warehouse_user}
       DB_PASSWORD:          ${DB_PASSWORD:-warehouse_pass}
       DB_PORT:              ${DB_PORT:-3306}
-      DJANGO_SECRET_KEY:    ${DJANGO_SECRET_KEY:-}
+      DJANGO_SECRET_KEY:    ${DJANGO_SECRET_KEY}
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend,0.0.0.0}
       REDIS_URL:            redis://redis:6379/0
       CELERY_BROKER_URL:    redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
-      CI:                   ${CI:-}
     volumes:
       - ./backend:/app
     ports:
@@ -103,12 +102,11 @@ services:
       DB_USER:              ${DB_USER:-warehouse_user}
       DB_PASSWORD:          ${DB_PASSWORD:-warehouse_pass}
       DB_PORT:              ${DB_PORT:-3306}
-      DJANGO_SECRET_KEY:    ${DJANGO_SECRET_KEY:-}
+      DJANGO_SECRET_KEY:    ${DJANGO_SECRET_KEY}
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend,0.0.0.0}
       REDIS_URL:            redis://redis:6379/0
       CELERY_BROKER_URL:    redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
-      CI:                   ${CI:-}
     volumes:
       - ./backend:/app
     depends_on:
@@ -142,12 +140,11 @@ services:
       DB_USER:              ${DB_USER:-warehouse_user}
       DB_PASSWORD:          ${DB_PASSWORD:-warehouse_pass}
       DB_PORT:              ${DB_PORT:-3306}
-      DJANGO_SECRET_KEY:    ${DJANGO_SECRET_KEY:-}
+      DJANGO_SECRET_KEY:    ${DJANGO_SECRET_KEY}
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend,0.0.0.0}
       REDIS_URL:            redis://redis:6379/0
       CELERY_BROKER_URL:    redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
-      CI:                   ${CI:-}
     volumes:
       - ./backend:/app
     depends_on:

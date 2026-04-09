@@ -293,7 +293,8 @@ cmd_test_backend() {
   load_ports
   check_docker
   header "Backend tests — inside Docker (real DB, no mocking)"
-  $COMPOSE run --rm -e CI=true backend sh -c "
+  $COMPOSE run --rm backend sh -c "
+    export DJANGO_SECRET_KEY=\$(python -c 'import secrets; print(secrets.token_urlsafe(64))') && \
     python manage.py migrate --noinput 2>&1 && \
     python -m pytest tests/ --tb=short -v --no-header 2>&1
   "
@@ -329,7 +330,8 @@ cmd_test() {
   # ── Backend ────────────────────────────────────────────────────────────────
   echo ""
   info "▶ Backend tests (pytest, real DB)"
-  $COMPOSE run --rm -e CI=true backend sh -c "
+  $COMPOSE run --rm backend sh -c "
+    export DJANGO_SECRET_KEY=\$(python -c 'import secrets; print(secrets.token_urlsafe(64))') && \
     python manage.py migrate --noinput 2>&1 && \
     python -m pytest tests/ --tb=short -v --no-header 2>&1
   " || backend_exit=$?
