@@ -27,6 +27,8 @@ export interface Bin {
 export interface Item {
   id: number
   sku: string
+  barcode: string
+  rfid_tag: string
   name: string
   description: string
   unit_of_measure: string
@@ -142,6 +144,22 @@ export function useItems(query?: string) {
       if (query) params.set('q', query)
       return api.get(`/api/items/?${params}`).then(r => r.data)
     },
+  })
+}
+
+/**
+ * Exact-match scan resolution: resolves a barcode, RFID tag, or SKU scanned
+ * by hardware to a single Item record.  The server searches sku, barcode, and
+ * rfid_tag with a case-insensitive exact match.
+ */
+export function useScanItem(scanCode: string | null) {
+  return useQuery<PaginatedResponse<Item>>({
+    queryKey: ['items-scan', scanCode],
+    queryFn: () => {
+      const params = new URLSearchParams({ scan: scanCode! })
+      return api.get(`/api/items/?${params}`).then(r => r.data)
+    },
+    enabled: !!scanCode,
   })
 }
 

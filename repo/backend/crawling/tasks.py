@@ -172,6 +172,7 @@ def promote_waiting_tasks() -> dict:
             from .routing import crawl_queue_for_source
             execute_crawl_task.apply_async(
                 args=[task.pk],
+                kwargs={"quota_pre_acquired": True},
                 queue=crawl_queue_for_source(task.source_id),
             )
             promoted += 1

@@ -53,6 +53,8 @@ class Item(SoftDeleteModel):
     """
 
     sku = models.CharField(max_length=100, unique=True, db_index=True)
+    barcode = models.CharField(max_length=150, blank=True, default="", db_index=True)
+    rfid_tag = models.CharField(max_length=150, blank=True, default="", db_index=True)
     name = models.CharField(max_length=300)
     description = models.TextField(blank=True)
     unit_of_measure = models.CharField(max_length=30, default="EA")

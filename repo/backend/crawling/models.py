@@ -194,6 +194,48 @@ class CrawlRequestLog(TimeStampedModel):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Crawled product / supplier data
+# ─────────────────────────────────────────────────────────────────────────────
+
+class CrawledProduct(TimeStampedModel):
+    """
+    Stores raw product/supplier payload extracted from a crawled HTTP response.
+
+    Each successful HTTP response produces one record.  raw_payload holds the
+    parsed JSON body, or a ``{"raw_text": ...}`` fallback dict when the
+    response is not JSON.
+
+    checksum (SHA-256 of canonical JSON) enables idempotent re-crawls:
+    a payload already seen for this source is not duplicated.
+    """
+
+    source = models.ForeignKey(
+        CrawlSource,
+        on_delete=models.CASCADE,
+        related_name="products",
+    )
+    task = models.ForeignKey(
+        CrawlTask,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="products",
+    )
+    page_url = models.CharField(max_length=2000)
+    raw_payload = models.JSONField()
+    checksum = models.CharField(max_length=64, db_index=True)
+
+    class Meta:
+        db_table = "crawling_product"
+        indexes = [
+            models.Index(fields=["source", "-created_at"]),
+        ]
+
+    def __str__(self):
+        return f"CrawledProduct(source={self.source_id}, url={self.page_url[:80]})"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Per-source quota
 # ─────────────────────────────────────────────────────────────────────────────
 

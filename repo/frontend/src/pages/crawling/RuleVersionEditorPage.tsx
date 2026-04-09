@@ -21,7 +21,9 @@ import {
   useActivateVersion,
   useStartCanary,
   useRollbackCanary,
+  useTestRuleVersion,
   type CrawlRuleVersion,
+  type RuleTestResult,
 } from '@/hooks/useCrawling'
 
 function versionBadge(v: CrawlRuleVersion) {
@@ -43,8 +45,11 @@ export function RuleVersionEditorPage() {
   const activateMut = useActivateVersion(sourceId ?? 0)
   const canaryMut = useStartCanary(sourceId ?? 0)
   const rollbackMut = useRollbackCanary(sourceId ?? 0)
+  const testMut = useTestRuleVersion()
 
   const [newModalOpen, setNewModalOpen] = useState(false)
+  const [testResult, setTestResult] = useState<{ versionId: number; result: RuleTestResult } | null>(null)
+  const [testingId, setTestingId] = useState<number | null>(null)
   const [note, setNote] = useState('')
   const [urlPattern, setUrlPattern] = useState('')
   const [parametersJson, setParametersJson] = useState('')
@@ -132,6 +137,19 @@ export function RuleVersionEditorPage() {
     }
   }
 
+  async function handleTest(v: CrawlRuleVersion) {
+    setTestingId(v.id)
+    setTestResult(null)
+    try {
+      const result = await testMut.mutateAsync(v.id)
+      setTestResult({ versionId: v.id, result })
+    } catch {
+      toast.error('Test request failed')
+    } finally {
+      setTestingId(null)
+    }
+  }
+
   const list = versions?.results ?? []
 
   return (
@@ -157,53 +175,90 @@ export function RuleVersionEditorPage() {
 
       <div className="space-y-3">
         {list.map(v => (
-          <div
-            key={v.id}
-            className="bg-surface-800 border border-surface-700 rounded-xl p-5 flex items-start justify-between gap-4"
-          >
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-3 mb-1">
-                <span className="text-text-primary font-semibold text-sm">v{v.version_number}</span>
-                {versionBadge(v)}
-                {v.is_canary && v.canary_error_rate != null && (
-                  <span className={`text-xs ${v.canary_error_rate > 2 ? 'text-danger-400' : 'text-success-400'}`}>
-                    {v.canary_error_rate.toFixed(1)}% errors
-                  </span>
+          <div key={v.id}>
+            <div className="bg-surface-800 border border-surface-700 rounded-xl p-5 flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-3 mb-1">
+                  <span className="text-text-primary font-semibold text-sm">v{v.version_number}</span>
+                  {versionBadge(v)}
+                  {v.is_canary && v.canary_error_rate != null && (
+                    <span className={`text-xs ${v.canary_error_rate > 2 ? 'text-danger-400' : 'text-success-400'}`}>
+                      {v.canary_error_rate.toFixed(1)}% errors
+                    </span>
+                  )}
+                </div>
+                <p className="text-text-muted text-xs">{v.version_note || '—'}</p>
+                {v.canary_started_at && (
+                  <p className="text-text-muted text-xs mt-1">
+                    Canary started: {new Date(v.canary_started_at).toLocaleString()}
+                  </p>
+                )}
+                {Object.keys(v.request_headers_masked).length > 0 && (
+                  <p className="text-text-muted text-xs mt-1">
+                    Headers: {Object.keys(v.request_headers_masked).join(', ')} (redacted)
+                  </p>
                 )}
               </div>
-              <p className="text-text-muted text-xs">{v.version_note || '—'}</p>
-              {v.canary_started_at && (
-                <p className="text-text-muted text-xs mt-1">
-                  Canary started: {new Date(v.canary_started_at).toLocaleString()}
-                </p>
-              )}
-              {Object.keys(v.request_headers_masked).length > 0 && (
-                <p className="text-text-muted text-xs mt-1">
-                  Headers: {Object.keys(v.request_headers_masked).join(', ')} (redacted)
-                </p>
-              )}
+
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => testResult?.versionId === v.id ? setTestResult(null) : handleTest(v)}
+                  disabled={testingId === v.id}
+                >
+                  {testingId === v.id ? 'Testing…' : 'Test'}
+                </Button>
+                {!v.is_active && !v.is_canary && (
+                  <>
+                    <Button size="sm" variant="secondary" onClick={() => handleActivate(v)}>
+                      Activate
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => handleCanary(v)}>
+                      Start Canary
+                    </Button>
+                  </>
+                )}
+                {v.is_canary && (
+                  <Button size="sm" variant="danger" onClick={() => handleRollback(v)}>
+                    Rollback
+                  </Button>
+                )}
+                {v.is_active && !v.is_canary && (
+                  <span className="text-xs text-success-400 px-2">Current active</span>
+                )}
+              </div>
             </div>
 
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {!v.is_active && !v.is_canary && (
-                <>
-                  <Button size="sm" variant="secondary" onClick={() => handleActivate(v)}>
-                    Activate
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => handleCanary(v)}>
-                    Start Canary
-                  </Button>
-                </>
-              )}
-              {v.is_canary && (
-                <Button size="sm" variant="danger" onClick={() => handleRollback(v)}>
-                  Rollback
-                </Button>
-              )}
-              {v.is_active && !v.is_canary && (
-                <span className="text-xs text-success-400 px-2">Current active</span>
-              )}
-            </div>
+            {/* Test result panel */}
+            {testResult?.versionId === v.id && (
+              <div className={`border border-t-0 rounded-b-xl px-5 py-4 text-sm ${
+                testResult.result.error
+                  ? 'bg-danger-950 border-danger-700'
+                  : testResult.result.status_code && testResult.result.status_code < 400
+                    ? 'bg-success-950 border-success-700'
+                    : 'bg-warning-950 border-warning-700'
+              }`}>
+                <div className="flex items-center gap-4 mb-2 font-mono text-xs">
+                  {testResult.result.status_code != null && (
+                    <span className={`font-semibold ${
+                      testResult.result.status_code < 400 ? 'text-success-400' : 'text-danger-400'
+                    }`}>
+                      HTTP {testResult.result.status_code}
+                    </span>
+                  )}
+                  <span className="text-text-muted">{testResult.result.duration_ms} ms</span>
+                  {testResult.result.error && (
+                    <span className="text-danger-400">{testResult.result.error}</span>
+                  )}
+                </div>
+                {testResult.result.snippet && (
+                  <pre className="text-text-secondary text-xs bg-surface-900 rounded p-3 overflow-x-auto whitespace-pre-wrap break-all max-h-40">
+                    {testResult.result.snippet}
+                  </pre>
+                )}
+              </div>
+            )}
           </div>
         ))}
       </div>

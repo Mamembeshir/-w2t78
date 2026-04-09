@@ -207,6 +207,65 @@ class CrawlRuleVersionViewSet(
         version.refresh_from_db()
         return Response(CrawlRuleVersionSerializer(version).data)
 
+    @action(detail=True, methods=["post"], url_path="test")
+    def test_rule(self, request, pk=None):
+        """
+        POST /api/crawl/rule-versions/{id}/test/
+
+        Dry-run: fires one HTTP GET to the rule version's url_pattern with its
+        configured parameters and decrypted headers.  No task is created and no
+        data is persisted — this is a validation-only probe.
+
+        Returns:
+          status_code  — HTTP response status (null on network error)
+          duration_ms  — round-trip time in milliseconds
+          snippet      — first 500 chars of response body, secrets masked
+          error        — normalised error message if the request failed, else null
+        """
+        import time as _time
+
+        import requests as http_requests
+
+        from config.logging_filters import _mask
+
+        from .worker import _get_headers, _mask_headers
+
+        version = self.get_object()
+        url = version.url_pattern
+        params = dict(version.parameters or {})
+        headers = _get_headers(version)
+
+        # Defense-in-depth: reject non-local URLs even if they somehow reached
+        # the DB without passing serializer validation (e.g. direct DB edits).
+        from .serializers import _assert_local_url
+        try:
+            _assert_local_url(url, "url_pattern")
+        except Exception:
+            return Response(
+                {"detail": "url_pattern must point to a local/private host. External URLs are not permitted."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        start = _time.monotonic()
+        try:
+            resp = http_requests.get(url, params=params, headers=headers, timeout=15, allow_redirects=True)
+            duration_ms = int((_time.monotonic() - start) * 1000)
+            snippet = _mask(resp.text[:500]) if resp.text else ""
+            return Response({
+                "status_code": resp.status_code,
+                "duration_ms": duration_ms,
+                "snippet": snippet,
+                "error": None,
+            })
+        except http_requests.RequestException as exc:
+            duration_ms = int((_time.monotonic() - start) * 1000)
+            return Response({
+                "status_code": None,
+                "duration_ms": duration_ms,
+                "snippet": None,
+                "error": str(exc),
+            }, status=status.HTTP_200_OK)  # 200 — the probe itself succeeded; error is domain info
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 6.3 Task Scheduler

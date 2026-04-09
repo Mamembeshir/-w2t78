@@ -28,6 +28,7 @@ from rest_framework.test import APIClient
 from accounts.models import Role, User
 
 from .models import (
+    CrawledProduct,
     CrawlRequestLog,
     CrawlRuleVersion,
     CrawlSource,
@@ -101,7 +102,7 @@ class SourceAPITests(TestCase):
     def test_create_source_analyst(self):
         auth(self.client, self.token)
         resp = self.client.post("/api/crawl/sources/", {
-            "name": "New Source", "base_url": "http://local.test",
+            "name": "New Source", "base_url": "http://example.local",
             "rate_limit_rpm": 30, "crawl_delay_seconds": 2,
             "user_agents": ["Agent/1"],
         }, format="json")
@@ -1136,3 +1137,134 @@ class CrawlDelayBehaviorTests(LiveServerTestCase):
         # One inter-page sleep of 1 s must be present
         self.assertGreaterEqual(elapsed, 1.0,
             f"Expected >= 1.0 s with honor=True but took {elapsed:.2f} s")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 6.9  CrawledProduct persistence + dedupe
+# 6.10 /rule-versions/{id}/test/ endpoint
+# 6.11 promote_waiting_tasks + quota_pre_acquired=True path
+# ─────────────────────────────────────────────────────────────────────────────
+
+class NewFeatureTests(LiveServerTestCase):
+    """
+    Integration tests for features added after the initial Phase-6 delivery:
+      6.9  CrawledProduct written and deduplicated on worker execution
+      6.10 POST /api/crawl/rule-versions/{id}/test/ probe endpoint
+      6.11 execute_crawl_task with quota_pre_acquired=True skips quota
+           promote_waiting_tasks promotes WAITING → PENDING
+    """
+
+    def setUp(self):
+        self.analyst = create_user("new_feat_analyst", Role.PROCUREMENT_ANALYST)
+        self.source = make_source("NEW_FEAT_SRC", rate_limit=60)
+        self.source.crawl_delay_seconds = 0
+        self.source.save()
+        self.rv = make_rule_version(self.source, version_number=1)
+        # Point the rule version at the live server health endpoint
+        self.rv.url_pattern = f"{self.live_server_url}/api/health/"
+        self.rv.save(update_fields=["url_pattern"])
+
+    def _make_task(self, url=None):
+        url = url or f"{self.live_server_url}/api/health/"
+        fp = _compute_fingerprint(url, {})
+        return CrawlTask.objects.create(
+            source=self.source,
+            rule_version=self.rv,
+            fingerprint=fp,
+            url=url,
+            status=CrawlTaskStatus.PENDING,
+        )
+
+    # ── 6.9  CrawledProduct write + dedupe ────────────────────────────────────
+
+    def test_crawled_product_created_on_successful_response(self):
+        """Worker creates exactly one CrawledProduct record for a successful fetch."""
+        from .worker import execute_crawl_task
+        task = self._make_task()
+        execute_crawl_task(task.pk)
+        self.assertEqual(CrawledProduct.objects.filter(source=self.source).count(), 1)
+
+    def test_crawled_product_deduped_on_identical_payload(self):
+        """
+        Two tasks that fetch the same URL (same JSON payload) must not produce
+        duplicate CrawledProduct rows — the checksum guard deduplicates them.
+        """
+        from .worker import execute_crawl_task
+        task1 = self._make_task()
+        fp2 = _compute_fingerprint(f"{self.live_server_url}/api/health/", {"v": "2"})
+        task2 = CrawlTask.objects.create(
+            source=self.source, rule_version=self.rv,
+            fingerprint=fp2,
+            url=f"{self.live_server_url}/api/health/",
+            status=CrawlTaskStatus.PENDING,
+        )
+        execute_crawl_task(task1.pk)
+        count_after_first = CrawledProduct.objects.filter(source=self.source).count()
+        execute_crawl_task(task2.pk)
+        count_after_second = CrawledProduct.objects.filter(source=self.source).count()
+        # Health endpoint returns identical JSON both times → same checksum → no duplicate
+        self.assertEqual(count_after_first, count_after_second)
+
+    # ── 6.10  /rule-versions/{id}/test/ ──────────────────────────────────────
+
+    def test_rule_test_endpoint_returns_response_data(self):
+        """POST /test/ on a local URL returns status_code, duration_ms, snippet."""
+        client = APIClient()
+        token = login(client, "new_feat_analyst")
+        auth(client, token)
+        resp = client.post(f"/api/crawl/rule-versions/{self.rv.pk}/test/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.json()
+        self.assertEqual(data["status_code"], 200)
+        self.assertIsNotNone(data["duration_ms"])
+        self.assertIsNone(data["error"])
+
+    def test_rule_test_endpoint_rejects_public_url(self):
+        """
+        If a public URL somehow ends up in url_pattern (e.g. direct DB edit),
+        POST /test/ must return 400 — the defense-in-depth guard fires.
+        """
+        client = APIClient()
+        token = login(client, "new_feat_analyst")
+        auth(client, token)
+        # Bypass serializer validation by writing directly to the model
+        self.rv.url_pattern = "http://example.com/products"
+        self.rv.save(update_fields=["url_pattern"])
+        resp = client.post(f"/api/crawl/rule-versions/{self.rv.pk}/test/")
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    # ── 6.11  quota_pre_acquired=True + promote_waiting_tasks ─────────────────
+
+    def test_execute_crawl_task_quota_pre_acquired_skips_quota_check(self):
+        """
+        With quota_pre_acquired=True the worker skips quota acquisition and
+        executes the task even when rate_limit_rpm=0 (no quota available).
+        """
+        from .worker import execute_crawl_task
+        self.source.rate_limit_rpm = 0
+        self.source.save(update_fields=["rate_limit_rpm"])
+        task = self._make_task()
+        result = execute_crawl_task(task.pk, quota_pre_acquired=True)
+        task.refresh_from_db()
+        self.assertTrue(result.get("completed"), f"Expected completed, got: {result}")
+        self.assertEqual(task.status, CrawlTaskStatus.COMPLETED)
+
+    def test_promote_waiting_tasks_promotes_to_pending(self):
+        """
+        promote_waiting_tasks acquires quota for WAITING tasks and moves them
+        to PENDING (and dispatches execution via apply_async with
+        quota_pre_acquired=True so the promoted task does not double-count).
+        """
+        from django.test.utils import override_settings
+        from .tasks import promote_waiting_tasks
+        task = self._make_task()
+        task.status = CrawlTaskStatus.WAITING
+        task.save(update_fields=["status"])
+        # CELERY_TASK_ALWAYS_EAGER executes apply_async synchronously without
+        # a broker, allowing the full promotion + execution path to run in-process.
+        with override_settings(CELERY_TASK_ALWAYS_EAGER=True):
+            result = promote_waiting_tasks()
+        self.assertGreaterEqual(result["promoted"], 1)
+        task.refresh_from_db()
+        # With ALWAYS_EAGER the task runs synchronously and reaches COMPLETED
+        self.assertIn(task.status, (CrawlTaskStatus.PENDING, CrawlTaskStatus.COMPLETED))

@@ -40,8 +40,8 @@ class ItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = Item
         fields = [
-            "id", "sku", "name", "description", "unit_of_measure",
-            "costing_method", "safety_stock_qty", "is_active",
+            "id", "sku", "barcode", "rfid_tag", "name", "description",
+            "unit_of_measure", "costing_method", "safety_stock_qty", "is_active",
             "slow_moving_flagged_at", "created_at", "updated_at",
         ]
         read_only_fields = ["id", "slow_moving_flagged_at", "created_at", "updated_at"]
@@ -58,6 +58,32 @@ class ItemSerializer(serializers.ModelSerializer):
                 "Costing method cannot be changed after stock transactions have been posted."
             )
         return value
+
+    def validate(self, data):
+        """Enforce uniqueness for non-empty barcode and rfid_tag values."""
+        instance = self.instance  # None on create, Item on update
+
+        barcode = data.get("barcode", "") or ""
+        if barcode:
+            qs = Item.objects.filter(barcode=barcode, deleted_at__isnull=True)
+            if instance:
+                qs = qs.exclude(pk=instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError(
+                    {"barcode": f"An item with barcode '{barcode}' already exists."}
+                )
+
+        rfid_tag = data.get("rfid_tag", "") or ""
+        if rfid_tag:
+            qs = Item.objects.filter(rfid_tag=rfid_tag, deleted_at__isnull=True)
+            if instance:
+                qs = qs.exclude(pk=instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError(
+                    {"rfid_tag": f"An item with RFID tag '{rfid_tag}' already exists."}
+                )
+
+        return data
 
 
 class ItemDetailSerializer(ItemSerializer):

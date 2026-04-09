@@ -54,10 +54,20 @@ export function IssueStockPage() {
 
   useEffect(() => { scanRef.current?.focus() }, [])
 
+  function _resolveScanned(value: string) {
+    const v = value.toLowerCase()
+    return itemsData?.results?.find(
+      i =>
+        i.sku.toLowerCase() === v ||
+        (i.barcode && i.barcode.toLowerCase() === v) ||
+        (i.rfid_tag && i.rfid_tag.toLowerCase() === v)
+    ) ?? null
+  }
+
   function handleCameraDetected(code: string) {
     setScanValue(code)
     setCameraOpen(false)
-    const match = itemsData?.results?.find(i => i.sku.toLowerCase() === code.toLowerCase())
+    const match = _resolveScanned(code)
     if (match) { setSelectedItemId(match.id); setScanValue(match.sku) }
     scanRef.current?.focus()
   }
@@ -136,7 +146,7 @@ export function IssueStockPage() {
                 value={scanValue}
                 onChange={v => { setScanValue(v); setSelectedItemId(null) }}
                 onKeyDown={e => { if (e.key === 'Enter') {
-                  const match = itemsData?.results?.find(i => i.sku.toLowerCase() === scanValue.toLowerCase())
+                  const match = _resolveScanned(scanValue)
                   if (match) { setSelectedItemId(match.id); setScanValue(match.sku) }
                 }}}
                 placeholder="Scan or type SKU…"

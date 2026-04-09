@@ -22,6 +22,7 @@ router.register(r"tasks", CrawlTaskViewSet, basename="crawl-task")
 #   POST /api/crawl/rule-versions/{id}/activate/
 #   POST /api/crawl/rule-versions/{id}/canary/
 #   POST /api/crawl/rule-versions/{id}/rollback/
+#   POST /api/crawl/rule-versions/{id}/test/       — dry-run probe (no task created)
 #   GET/POST /api/crawl/tasks/
 #   GET /api/crawl/tasks/{id}/
 #   POST /api/crawl/tasks/{id}/retry/

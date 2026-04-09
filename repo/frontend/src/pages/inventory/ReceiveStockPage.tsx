@@ -41,10 +41,18 @@ export function ReceiveStockPage() {
   // Auto-focus scan field on mount
   useEffect(() => { scanRef.current?.focus() }, [])
 
+  function _resolveScanned(value: string) {
+    const v = value.toLowerCase()
+    return itemsData?.results?.find(
+      i =>
+        i.sku.toLowerCase() === v ||
+        (i.barcode && i.barcode.toLowerCase() === v) ||
+        (i.rfid_tag && i.rfid_tag.toLowerCase() === v)
+    ) ?? null
+  }
+
   function handleScanEnter(value: string) {
-    const match = itemsData?.results?.find(
-      i => i.sku.toLowerCase() === value.toLowerCase()
-    )
+    const match = _resolveScanned(value)
     if (match) {
       setSelectedItemId(match.id)
       setScanValue(match.sku)
@@ -54,10 +62,7 @@ export function ReceiveStockPage() {
   function handleCameraDetected(code: string) {
     setScanValue(code)
     setCameraOpen(false)
-    // Attempt direct match; user can press Enter if not found
-    const match = itemsData?.results?.find(
-      i => i.sku.toLowerCase() === code.toLowerCase()
-    )
+    const match = _resolveScanned(code)
     if (match) {
       setSelectedItemId(match.id)
       setScanValue(match.sku)

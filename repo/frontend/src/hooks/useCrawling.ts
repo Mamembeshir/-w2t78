@@ -12,6 +12,7 @@ export interface CrawlSource {
   base_url: string
   rate_limit_rpm: number
   crawl_delay_seconds: number
+  honor_local_crawl_delay: boolean
   user_agents: string[]
   is_active: boolean
   active_rule_version: number | null
@@ -64,6 +65,13 @@ export interface CrawlRequestLog {
   response_snippet: string
   duration_ms: number
   timestamp: string
+}
+
+export interface RuleTestResult {
+  status_code: number | null
+  duration_ms: number
+  snippet: string | null
+  error: string | null
 }
 
 export interface SourceQuota {
@@ -175,6 +183,13 @@ export function useRollbackCanary(sourceId: number) {
     mutationFn: (versionId: number) =>
       api.post<CrawlRuleVersion>(`/api/crawl/rule-versions/${versionId}/rollback/`).then(r => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['crawl-rule-versions', sourceId] }),
+  })
+}
+
+export function useTestRuleVersion() {
+  return useMutation({
+    mutationFn: (versionId: number) =>
+      api.post<RuleTestResult>(`/api/crawl/rule-versions/${versionId}/test/`).then(r => r.data),
   })
 }
 

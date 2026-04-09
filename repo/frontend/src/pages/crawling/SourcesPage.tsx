@@ -60,9 +60,19 @@ interface SourceForm {
   base_url: string
   rate_limit_rpm: string
   crawl_delay_seconds: string
+  honor_local_crawl_delay: boolean
+  /** One user-agent string per line; validated and split on save */
+  user_agents_text: string
 }
 
-const EMPTY_FORM: SourceForm = { name: '', base_url: '', rate_limit_rpm: '60', crawl_delay_seconds: '1' }
+const EMPTY_FORM: SourceForm = {
+  name: '',
+  base_url: '',
+  rate_limit_rpm: '60',
+  crawl_delay_seconds: '1',
+  honor_local_crawl_delay: true,
+  user_agents_text: '',
+}
 
 export function SourcesPage() {
   const navigate = useNavigate()
@@ -75,10 +85,12 @@ export function SourcesPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<SourceForm>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
+  const [uaError, setUaError] = useState('')
 
   function openCreate() {
     setEditTarget(null)
     setForm(EMPTY_FORM)
+    setUaError('')
     setModalOpen(true)
   }
 
@@ -89,17 +101,30 @@ export function SourcesPage() {
       base_url: src.base_url,
       rate_limit_rpm: String(src.rate_limit_rpm),
       crawl_delay_seconds: String(src.crawl_delay_seconds),
+      honor_local_crawl_delay: src.honor_local_crawl_delay,
+      user_agents_text: (src.user_agents ?? []).join('\n'),
     })
+    setUaError('')
     setModalOpen(true)
   }
 
   async function handleSave() {
+    setUaError('')
+    const rawLines = form.user_agents_text.split('\n').map(l => l.trim()).filter(Boolean)
+    const invalidLine = rawLines.find(l => l.length === 0)
+    if (invalidLine !== undefined) {
+      setUaError('Each line must be a non-empty user-agent string.')
+      return
+    }
+
     setSaving(true)
     const payload = {
       name: form.name.trim(),
       base_url: form.base_url.trim(),
       rate_limit_rpm: Number(form.rate_limit_rpm),
       crawl_delay_seconds: Number(form.crawl_delay_seconds),
+      honor_local_crawl_delay: form.honor_local_crawl_delay,
+      user_agents: rawLines,
     }
     try {
       if (editTarget) {
@@ -196,6 +221,39 @@ export function SourcesPage() {
               />
             </label>
           </div>
+
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              className="w-4 h-4 rounded accent-primary-500"
+              checked={form.honor_local_crawl_delay}
+              onChange={e => setForm(f => ({ ...f, honor_local_crawl_delay: e.target.checked }))}
+            />
+            <span className="text-sm text-text-secondary">
+              Honor crawl delay from local ruleset
+              <span className="block text-xs text-text-muted">
+                When enabled, the worker sleeps between pages per the configured delay (CLAUDE.md §9).
+              </span>
+            </span>
+          </label>
+
+          <label className="block">
+            <span className="text-sm text-text-secondary mb-1 block">
+              User-Agent Rotation List
+              <span className="text-text-muted font-normal"> (optional — one per line)</span>
+            </span>
+            <textarea
+              value={form.user_agents_text}
+              onChange={e => { setForm(f => ({ ...f, user_agents_text: e.target.value })); setUaError('') }}
+              rows={4}
+              placeholder={"Mozilla/5.0 (compatible; WarehouseBot/1.0)\nMozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+              className="w-full bg-surface-700 border border-surface-600 rounded-lg px-3 py-2 text-sm text-text-primary font-mono resize-none focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+            {uaError && <span className="text-xs text-danger-400 mt-1 block">{uaError}</span>}
+            <span className="text-xs text-text-muted mt-1 block">
+              The crawler rotates through these strings randomly. Leave blank to send no User-Agent header.
+            </span>
+          </label>
 
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="ghost" onClick={() => setModalOpen(false)}>Cancel</Button>

@@ -370,7 +370,9 @@ class DigestTaskTests(TestCase):
         self.other_send_time = self.fixed_now.replace(hour=18).time()  # 18:00:00
 
         self.user = create_user("digest_user")
-        DigestSchedule.objects.create(user=self.user, send_time=self.fixed_send_time)
+        schedule, _ = DigestSchedule.objects.get_or_create(user=self.user)
+        schedule.send_time = self.fixed_send_time
+        schedule.save(update_fields=["send_time"])
 
     def test_digest_created_for_unread_notifications(self):
         for i in range(3):
@@ -427,8 +429,12 @@ class DigestTaskTests(TestCase):
         """
         user_a = create_user("digest_time_a")
         user_b = create_user("digest_time_b")
-        DigestSchedule.objects.create(user=user_a, send_time=self.fixed_send_time)
-        DigestSchedule.objects.create(user=user_b, send_time=self.other_send_time)
+        sched_a, _ = DigestSchedule.objects.get_or_create(user=user_a)
+        sched_a.send_time = self.fixed_send_time
+        sched_a.save(update_fields=["send_time"])
+        sched_b, _ = DigestSchedule.objects.get_or_create(user=user_b)
+        sched_b.send_time = self.other_send_time
+        sched_b.save(update_fields=["send_time"])
 
         for user in (user_a, user_b):
             Notification.objects.create(
@@ -465,7 +471,9 @@ class DigestTaskTests(TestCase):
     def test_user_with_non_matching_send_time_never_receives_digest(self):
         """A schedule whose send_time (18:00) does not match fixed_now (09:00) receives nothing."""
         user = create_user("digest_no_match")
-        DigestSchedule.objects.create(user=user, send_time=self.other_send_time)
+        sched, _ = DigestSchedule.objects.get_or_create(user=user)
+        sched.send_time = self.other_send_time
+        sched.save(update_fields=["send_time"])
         Notification.objects.create(
             user=user, event_type=EventType.SYSTEM, title="Pending", body="."
         )
@@ -832,7 +840,7 @@ class SystemSettingsAPITests(TestCase):
         resp = self.client.patch(
             self.SETTINGS_URL,
             {"smtp_host": "mailrelay.local", "smtp_port": 587},
-            content_type="application/json",
+            format="json",
         )
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         data = resp.json()
@@ -849,7 +857,7 @@ class SystemSettingsAPITests(TestCase):
         resp = self.client.patch(
             self.SETTINGS_URL,
             {"sms_gateway_url": "http://192.168.1.10:8080/sms"},
-            content_type="application/json",
+            format="json",
         )
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(resp.json()["sms_gateway_url"], "http://192.168.1.10:8080/sms")
@@ -862,20 +870,20 @@ class SystemSettingsAPITests(TestCase):
         resp = self.client.patch(
             self.SETTINGS_URL,
             {"sms_gateway_url": "https://api.twilio.com/sms"},
-            content_type="application/json",
+            format="json",
         )
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("sms_gateway_url", resp.json())
+        self.assertIn("sms_gateway_url", resp.json().get("details", resp.json()))
 
     def test_patch_invalid_scheme_sms_url_returns_400(self):
         auth(self.client, login(self.client, "settings_admin"))
         resp = self.client.patch(
             self.SETTINGS_URL,
             {"sms_gateway_url": "ftp://192.168.1.5/sms"},
-            content_type="application/json",
+            format="json",
         )
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("sms_gateway_url", resp.json())
+        self.assertIn("sms_gateway_url", resp.json().get("details", resp.json()))
 
     def test_patch_external_smtp_host_returns_400(self):
         """Offline policy: public internet SMTP hosts must be rejected."""
@@ -883,10 +891,10 @@ class SystemSettingsAPITests(TestCase):
         resp = self.client.patch(
             self.SETTINGS_URL,
             {"smtp_host": "smtp.gmail.com"},
-            content_type="application/json",
+            format="json",
         )
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("smtp_host", resp.json())
+        self.assertIn("smtp_host", resp.json().get("details", resp.json()))
 
     def test_patch_external_smtp_ip_returns_400(self):
         """Offline policy: public IP as SMTP host must be rejected."""
@@ -894,10 +902,10 @@ class SystemSettingsAPITests(TestCase):
         resp = self.client.patch(
             self.SETTINGS_URL,
             {"smtp_host": "8.8.8.8"},
-            content_type="application/json",
+            format="json",
         )
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("smtp_host", resp.json())
+        self.assertIn("smtp_host", resp.json().get("details", resp.json()))
 
     # ── /test-smtp/ — 400 when unconfigured ──────────────────────────────────
 
@@ -949,3 +957,35 @@ class SystemSettingsAPITests(TestCase):
         resp = self.client.post(self.TEST_SMS_URL)
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("message", resp.json())
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 7.9  DigestSchedule signal — auto-provision on user creation
+# ─────────────────────────────────────────────────────────────────────────────
+
+class DigestScheduleSignalTests(TestCase):
+    """
+    Regression tests for notifications/signals.py.
+
+    The post_save signal must create exactly one DigestSchedule (with the
+    default 18:00 send time) whenever a new User is created.  Subsequent
+    saves of the same user must not create extra rows.
+    """
+
+    def test_new_user_creates_exactly_one_digest_schedule(self):
+        user = create_user("signal_test_user")
+        count = DigestSchedule.objects.filter(user=user).count()
+        self.assertEqual(count, 1, "Expected exactly one DigestSchedule after user creation")
+
+    def test_digest_schedule_defaults_to_1800(self):
+        from datetime import time
+        user = create_user("signal_default_time_user")
+        schedule = DigestSchedule.objects.get(user=user)
+        self.assertEqual(schedule.send_time, time(18, 0))
+
+    def test_user_update_does_not_create_extra_schedule(self):
+        user = create_user("signal_update_user")
+        user.first_name = "Updated"
+        user.save()
+        count = DigestSchedule.objects.filter(user=user).count()
+        self.assertEqual(count, 1, "User update must not create an additional DigestSchedule")

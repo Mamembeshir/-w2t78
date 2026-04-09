@@ -1,9 +1,57 @@
 """
 crawling/serializers.py — Crawl source, rule version, task, and log serializers.
 """
+import ipaddress
 import json
+from urllib.parse import urlparse
 
 from rest_framework import serializers
+
+
+def _assert_local_url(value: str, field_name: str = "url") -> str:
+    """
+    Enforce the offline-only constraint: reject any URL whose host resolves to
+    a public internet address.
+
+    Accepted:
+      - http / https scheme
+      - localhost
+      - Unqualified hostnames (no dots) — LAN-internal names
+      - *.local and *.internal suffixes
+      - RFC-1918 / loopback / link-local IP addresses
+
+    Raises serializers.ValidationError for anything else.
+    """
+    if not value.lower().startswith(("http://", "https://")):
+        raise serializers.ValidationError(
+            f"{field_name} must begin with http:// or https://."
+        )
+
+    hostname = (urlparse(value).hostname or "").lower()
+    if not hostname:
+        raise serializers.ValidationError(f"{field_name} must include a hostname.")
+
+    if (
+        hostname == "localhost"
+        or "." not in hostname
+        or hostname.endswith(".local")
+        or hostname.endswith(".internal")
+    ):
+        return value
+
+    try:
+        addr = ipaddress.ip_address(hostname)
+        if addr.is_private or addr.is_loopback or addr.is_link_local:
+            return value
+    except ValueError:
+        pass
+
+    raise serializers.ValidationError(
+        f"{field_name} must point to a local/private host "
+        "(e.g. 192.168.x.x, 10.x.x.x, localhost, or an unqualified internal "
+        "hostname). External internet URLs violate the offline-only constraint."
+    )
+
 
 from .models import (
     CrawlRequestLog,
@@ -41,12 +89,8 @@ class CrawlSourceSerializer(serializers.ModelSerializer):
         return rv.pk if rv else None
 
     def validate_base_url(self, value: str) -> str:
-        """Reject non-http(s) URLs (e.g. javascript:, file:, data:)."""
-        if not value.lower().startswith(("http://", "https://")):
-            raise serializers.ValidationError(
-                "base_url must begin with http:// or https://."
-            )
-        return value
+        """Enforce offline-only constraint (see _assert_local_url)."""
+        return _assert_local_url(value, "base_url")
 
     def validate_user_agents(self, value) -> list:
         """Ensure user_agents is a list of non-empty strings."""
@@ -131,6 +175,10 @@ class CrawlRuleVersionCreateSerializer(serializers.ModelSerializer):
             "request_headers": {"required": False},
         }
 
+    def validate_url_pattern(self, value: str) -> str:
+        """Enforce offline-only constraint on the rule version URL pattern."""
+        return _assert_local_url(value, "url_pattern")
+
     def validate_request_headers(self, value):
         """Ensure request_headers is either empty or valid JSON representing a flat dict."""
         if not value:
@@ -179,6 +227,10 @@ class EnqueueTaskSerializer(serializers.Serializer):
     url = serializers.URLField(max_length=2000)
     parameters = serializers.DictField(child=serializers.CharField(), required=False, default=dict)
     priority = serializers.IntegerField(default=0, min_value=-10, max_value=10)
+
+    def validate_url(self, value: str) -> str:
+        """Enforce offline-only constraint on enqueue URL."""
+        return _assert_local_url(value, "url")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -4,6 +4,7 @@ inventory/views.py — Item, ledger, balance, and transaction API views.
 from decimal import Decimal
 
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
@@ -69,11 +70,46 @@ class ItemViewSet(
             return ItemDetailSerializer
         return ItemSerializer
 
+    def list(self, request, *args, **kwargs):
+        """Override to return 409 when a scan query matches multiple items."""
+        scan = request.query_params.get("scan")
+        if scan:
+            qs = Item.objects.filter(deleted_at__isnull=True).filter(
+                Q(sku__iexact=scan) | Q(barcode__iexact=scan) | Q(rfid_tag__iexact=scan)
+            ).distinct().order_by("sku")
+            if qs.count() > 1:
+                return Response(
+                    {
+                        "code": "scan_conflict",
+                        "detail": (
+                            f"Scan identifier matched {qs.count()} items. "
+                            "Ensure barcode and RFID tag values are unique across SKUs."
+                        ),
+                        "matches": ItemSerializer(qs, many=True).data,
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+        return super().list(request, *args, **kwargs)
+
     def get_queryset(self):
         qs = Item.objects.filter(deleted_at__isnull=True)
+
+        # Exact-match scan lookup: resolves barcode or RFID tag scanned by hardware
+        scan = self.request.query_params.get("scan")
+        if scan:
+            qs = qs.filter(
+                Q(sku__iexact=scan) | Q(barcode__iexact=scan) | Q(rfid_tag__iexact=scan)
+            )
+            return qs.distinct().order_by("sku")
+
+        # Free-text search across SKU, name, barcode, and RFID tag
         q = self.request.query_params.get("q")
         if q:
-            qs = qs.filter(sku__icontains=q) | qs.filter(name__icontains=q)
+            qs = qs.filter(
+                Q(sku__icontains=q) | Q(name__icontains=q)
+                | Q(barcode__icontains=q) | Q(rfid_tag__icontains=q)
+            )
+
         costing = self.request.query_params.get("costing_method")
         if costing:
             qs = qs.filter(costing_method=costing)
