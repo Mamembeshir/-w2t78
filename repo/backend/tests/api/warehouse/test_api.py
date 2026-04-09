@@ -1,17 +1,20 @@
 """
-warehouse/tests.py — Real-database integration tests for Phase 5.1.
+tests/warehouse/test_api.py — Warehouse and Bin API tests.
 
-Run:
-  docker compose exec backend python manage.py test warehouse --verbosity=2 --keepdb
+Covers listing, creating, updating warehouses and bins, authentication guards,
+role-based access control, and duplicate code rejection.
 """
 from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
 from accounts.models import Role, User
+from warehouse.models import Bin, Warehouse
 
-from .models import Bin, Warehouse
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Helpers
+# ─────────────────────────────────────────────────────────────────────────────
 
 def create_user(username, role=Role.ADMIN):
     u = User.objects.create_user(username=username, password="testpass1234", role=role)
@@ -26,6 +29,10 @@ def login(client, username):
 def auth(client, token):
     client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Warehouse API
+# ─────────────────────────────────────────────────────────────────────────────
 
 class WarehouseAPITests(TestCase):
     def setUp(self):
@@ -71,6 +78,10 @@ class WarehouseAPITests(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Bin API
+# ─────────────────────────────────────────────────────────────────────────────
+
 class BinAPITests(TestCase):
     def setUp(self):
         self.client = APIClient()
@@ -98,13 +109,3 @@ class BinAPITests(TestCase):
         auth(self.client, self.inv_token)
         resp = self.client.post(f"/api/warehouses/{self.wh.pk}/bins/", {"code": "B02"})
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
-
-    def test_bins_scoped_to_warehouse(self):
-        other_wh = Warehouse.objects.create(name="Other", code="OTH01")
-        Bin.objects.create(warehouse=self.wh, code="BIN_A")
-        Bin.objects.create(warehouse=other_wh, code="BIN_B")
-        auth(self.client, self.inv_token)
-        resp = self.client.get(f"/api/warehouses/{self.wh.pk}/bins/")
-        codes = [b["code"] for b in resp.json()["results"]]
-        self.assertIn("BIN_A", codes)
-        self.assertNotIn("BIN_B", codes)

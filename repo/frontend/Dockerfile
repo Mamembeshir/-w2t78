@@ -22,6 +22,21 @@ EXPOSE 5173
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
 
 
+# ── Test stage ────────────────────────────────────────────────────────────────
+# Uses node:20-slim (Debian) instead of Alpine — Alpine's musl libc can cause
+# npm to OOM-kill during install of large dependency trees (vitest, rollup).
+FROM node:20-slim AS test
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+
+CMD ["npm", "run", "test"]
+
+
 # ── Build stage ───────────────────────────────────────────────────────────────
 FROM node:20-alpine AS build
 

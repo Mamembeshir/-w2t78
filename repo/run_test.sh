@@ -13,9 +13,9 @@
 #   ./run_test.sh logs       Tail logs for all services
 #   ./run_test.sh logs <svc> Tail logs for one service (e.g. backend)
 #   ./run_test.sh status     Show container status
-#   ./run_test.sh test              Run backend test suite (real DB, no mocking)
-#   ./run_test.sh test-frontend     Run frontend Vitest suite
-#   ./run_test.sh test-all          Run backend + frontend test suites
+#   ./run_test.sh test              Run full test suite — backend + frontend (inside Docker)
+#   ./run_test.sh test-backend      Run backend tests only (inside Docker)
+#   ./run_test.sh test-frontend     Run frontend Vitest suite only (inside Docker)
 #   ./run_test.sh shell             Open Django shell inside backend container
 # =============================================================================
 
@@ -56,31 +56,37 @@ load_ports() {
 }
 
 # ── Prerequisite checks ───────────────────────────────────────────────────────
-check_prerequisites() {
-  header "Checking prerequisites"
 
-  # Docker daemon
+# Minimal check — only verifies Docker is available.
+# Used by test commands so CI pipelines (which supply secrets via env vars,
+# not a .env file) are never blocked by the local-secrets guard.
+check_docker() {
   if ! docker info &>/dev/null; then
     error "Docker daemon is not running. Start Docker Desktop or dockerd first."
     exit 1
   fi
-  success "Docker daemon is running"
-
-  # docker compose (v2)
   if ! docker compose version &>/dev/null; then
     error "docker compose (v2) not found. Install Docker Desktop >= 3.6 or compose plugin."
     exit 1
   fi
+}
+
+# Full check — also validates the .env file.
+# Used by start/build so the stack is never launched with placeholder secrets.
+check_prerequisites() {
+  header "Checking prerequisites"
+  check_docker
+  success "Docker daemon is running"
   success "docker compose $(docker compose version --short) available"
 
   # .env file
   if [[ ! -f "$ENV_FILE" ]]; then
     if [[ -f "$ENV_EXAMPLE" ]]; then
-      warn ".env not found — copying from docker/.env.example"
+      warn ".env not found — copying from .env.example"
       cp "$ENV_EXAMPLE" "$ENV_FILE"
       warn "Review .env and set real secrets before production use."
     else
-      error ".env file missing and no docker/.env.example to copy from."
+      error ".env file missing and no .env.example to copy from."
       exit 1
     fi
   fi
@@ -219,7 +225,7 @@ print_urls() {
   echo -e "    ${BOLD}./run_test.sh logs${RESET}           — tail all logs"
   echo -e "    ${BOLD}./run_test.sh logs backend${RESET}   — tail backend only"
   echo -e "    ${BOLD}./run_test.sh status${RESET}         — show container status"
-  echo -e "    ${BOLD}./run_test.sh test-all${RESET}       — run full test suite (backend + frontend)"
+  echo -e "    ${BOLD}./run_test.sh test${RESET}           — run full test suite (backend + frontend)"
   echo -e "    ${BOLD}./run_test.sh stop${RESET}           — stop all services"
   echo ""
 }
@@ -281,53 +287,67 @@ cmd_status() {
   $COMPOSE ps
 }
 
-cmd_test() {
+# Run backend tests inside Docker.
+# docker compose run respects depends_on, so DB + Redis start automatically.
+cmd_test_backend() {
   load_ports
-  header "Running backend test suite (real DB, no mocking)"
-
-  # Ensure DB is up
-  if ! docker compose ps db | grep -q "healthy"; then
-    warn "DB not healthy — starting data layer first..."
-    $COMPOSE up -d db redis
-    wait_for_mysql
-  fi
-
-  info "Running: full backend test suite inside container"
-  $COMPOSE exec backend sh -c "
-    cd /app && \
-    python -m pytest \
-      tests/ \
-      accounts/tests.py \
-      inventory/tests.py \
-      crawling/tests.py \
-      notifications/tests.py \
-      audit/tests.py \
-      warehouse/tests.py \
-      --tb=short \
-      -v \
-      --no-header \
-      2>&1
+  check_docker
+  header "Backend tests — inside Docker (real DB, no mocking)"
+  $COMPOSE run --rm backend sh -c "
+    python manage.py migrate --noinput 2>&1 && \
+    python -m pytest tests/ --tb=short -v --no-header 2>&1
   "
 }
 
+# Run frontend Vitest suite inside Docker.
+# --no-deps skips the backend dependency; Vitest is pure in-memory.
 cmd_test_frontend() {
-  header "Running frontend test suite (Vitest)"
-
-  # Ensure frontend container is up
-  if ! $COMPOSE ps frontend 2>/dev/null | grep -q "Up\|running"; then
-    warn "Frontend container not running — starting it first..."
-    $COMPOSE up -d frontend
-    load_ports
-    wait_for_port "Vite dev server" "localhost" "${FRONTEND_PORT:-5173}" "$FRONTEND_TIMEOUT"
-  fi
-
-  info "Running: vitest run inside frontend container"
-  $COMPOSE exec frontend npm run test
+  check_docker
+  header "Frontend tests — inside Docker (Vitest)"
+  # Build the image directly so node_modules are installed inside the image
+  # for the correct platform (Linux). No host volume mounts — fully isolated.
+  info "Building frontend test image..."
+  docker build \
+    --target test \
+    --tag warehouse-frontend-test:ci \
+    --file "$SCRIPT_DIR/frontend/Dockerfile" \
+    "$SCRIPT_DIR/frontend" \
+    > /dev/null
+  info "Running: vitest run"
+  docker run --rm warehouse-frontend-test:ci npm run test
 }
 
-cmd_test_all() {
-  cmd_test
-  cmd_test_frontend
+# Single command: run both suites entirely inside Docker.
+cmd_test() {
+  load_ports
+  check_docker
+  header "Full test suite — backend + frontend (all inside Docker)"
+
+  local backend_exit=0
+  local frontend_exit=0
+
+  # ── Backend ────────────────────────────────────────────────────────────────
+  echo ""
+  info "▶ Backend tests (pytest, real DB)"
+  $COMPOSE run --rm backend sh -c "
+    python manage.py migrate --noinput 2>&1 && \
+    python -m pytest tests/ --tb=short -v --no-header 2>&1
+  " || backend_exit=$?
+
+  # ── Frontend ───────────────────────────────────────────────────────────────
+  echo ""
+  info "▶ Frontend tests (Vitest)"
+  cmd_test_frontend || frontend_exit=$?
+
+  # ── Summary ────────────────────────────────────────────────────────────────
+  echo ""
+  if (( backend_exit == 0 && frontend_exit == 0 )); then
+    success "All tests passed  (backend ✓   frontend ✓)"
+  else
+    (( backend_exit  != 0 )) && error "Backend tests FAILED  (exit $backend_exit)"
+    (( frontend_exit != 0 )) && error "Frontend tests FAILED  (exit $frontend_exit)"
+    return 1
+  fi
 }
 
 cmd_shell() {
@@ -343,20 +363,20 @@ main() {
   cd "$SCRIPT_DIR"
 
   case "$cmd" in
-    start)   cmd_start ;;
-    stop)    cmd_stop ;;
-    restart) cmd_restart ;;
-    build)   cmd_build ;;
-    logs)    cmd_logs "${1:-}" ;;
-    status)  cmd_status ;;
-    test)            cmd_test ;;
-    test-frontend)   cmd_test_frontend ;;
-    test-all)        cmd_test_all ;;
-    shell)           cmd_shell ;;
+    start)          cmd_start ;;
+    stop)           cmd_stop ;;
+    restart)        cmd_restart ;;
+    build)          cmd_build ;;
+    logs)           cmd_logs "${1:-}" ;;
+    status)         cmd_status ;;
+    test)           cmd_test ;;
+    test-backend)   cmd_test_backend ;;
+    test-frontend)  cmd_test_frontend ;;
+    shell)          cmd_shell ;;
     *)
       error "Unknown command: $cmd"
       echo ""
-      echo "Usage: $0 [start|stop|restart|build|logs|status|test|test-frontend|test-all|shell]"
+      echo "Usage: $0 [start|stop|restart|build|logs|status|test|test-backend|test-frontend|shell]"
       exit 1
       ;;
   esac

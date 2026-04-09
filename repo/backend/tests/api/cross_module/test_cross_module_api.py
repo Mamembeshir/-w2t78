@@ -1,5 +1,5 @@
 """
-tests/test_e2e.py — Phase 8.6 End-to-End flow tests.
+tests/api/test_cross_module_api.py — Cross-module end-to-end API tests.
 
 These tests cross module boundaries and verify the system behaves
 correctly for complete user journeys:
