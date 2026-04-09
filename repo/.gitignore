@@ -62,7 +62,6 @@ frontend/.vite/
 .env
 .env.*
 !.env.example
-!docker/.env.example
 *.pem
 *.key
 secrets/

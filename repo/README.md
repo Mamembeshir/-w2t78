@@ -5,7 +5,7 @@
 Before starting for the first time, create a `.env` file with real secret values:
 
 ```bash
-cp docker/.env.example .env
+cp .env.example .env
 ```
 
 Then edit `.env` and replace every `CHANGE_ME` value. At minimum:

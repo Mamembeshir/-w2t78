@@ -73,31 +73,40 @@ check_docker() {
 
 # Replace CHANGE_ME placeholders in .env with auto-generated values.
 # Called when .env is freshly copied from .env.example (e.g. in CI).
+# Uses Python to do the replacement — avoids sed portability issues.
 _generate_env_secrets() {
   info "Auto-generating secrets for CHANGE_ME placeholders..."
 
-  # Random password (32 chars, URL-safe)
-  _rand_pw() { python3 -c "import secrets; print(secrets.token_urlsafe(32))" 2>/dev/null || openssl rand -base64 32 | tr -d '/+=' | head -c 32; }
+  python3 -c "
+import secrets, base64, os, re, sys
 
-  local django_key
-  django_key=$(python3 -c "import secrets; print(secrets.token_urlsafe(64))")
+env_path = sys.argv[1]
 
-  local fernet_key
-  fernet_key=$(python3 -c "import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())")
+# Generate secrets
+replacements = {
+    'DJANGO_SECRET_KEY': secrets.token_urlsafe(64),
+    'FIELD_ENCRYPTION_KEY': base64.urlsafe_b64encode(os.urandom(32)).decode(),
+    'MYSQL_ROOT_PASSWORD': secrets.token_urlsafe(32),
+}
+# DB_PASSWORD and MYSQL_PASSWORD must match
+db_pw = secrets.token_urlsafe(32)
+replacements['DB_PASSWORD'] = db_pw
+replacements['MYSQL_PASSWORD'] = db_pw
 
-  local db_password
-  db_password=$(_rand_pw)
+with open(env_path, 'r') as f:
+    content = f.read()
 
-  local root_password
-  root_password=$(_rand_pw)
+for key, value in replacements.items():
+    content = re.sub(
+        rf'^({re.escape(key)})\s*=\s*CHANGE_ME.*$',
+        rf'\1={value}',
+        content,
+        flags=re.MULTILINE,
+    )
 
-  # Replace all CHANGE_ME values
-  sed -i.bak "s|DJANGO_SECRET_KEY=CHANGE_ME.*|DJANGO_SECRET_KEY=${django_key}|" "$ENV_FILE"
-  sed -i.bak "s|FIELD_ENCRYPTION_KEY=CHANGE_ME.*|FIELD_ENCRYPTION_KEY=${fernet_key}|" "$ENV_FILE"
-  sed -i.bak "s|MYSQL_ROOT_PASSWORD=CHANGE_ME.*|MYSQL_ROOT_PASSWORD=${root_password}|" "$ENV_FILE"
-  sed -i.bak "s|DB_PASSWORD=CHANGE_ME.*|DB_PASSWORD=${db_password}|" "$ENV_FILE"
-  sed -i.bak "s|MYSQL_PASSWORD=CHANGE_ME.*|MYSQL_PASSWORD=${db_password}|" "$ENV_FILE"
-  rm -f "${ENV_FILE}.bak"
+with open(env_path, 'w') as f:
+    f.write(content)
+" "$ENV_FILE"
 
   success "Secrets generated and written to .env"
 }
@@ -124,8 +133,8 @@ check_prerequisites() {
   fi
   success ".env file present"
 
-  # Abort if any CHANGE_ME placeholder remains in the active .env
-  if grep -qi "CHANGE_ME" "$ENV_FILE" 2>/dev/null; then
+  # Abort if any CHANGE_ME placeholder remains in a non-comment line
+  if grep -v '^\s*#' "$ENV_FILE" 2>/dev/null | grep -qi "CHANGE_ME"; then
     error "One or more CHANGE_ME placeholders remain in .env — replace them before starting the stack."
     error "Generate DJANGO_SECRET_KEY with: python -c \"import secrets; print(secrets.token_urlsafe(64))\""
     exit 1
