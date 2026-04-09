@@ -82,16 +82,16 @@ import secrets, base64, os, re, sys
 
 env_path = sys.argv[1]
 
-# Generate secrets
+# Generate app-level secrets (unique per environment)
+# DB credentials use the same defaults as docker-compose.yml so that
+# MySQL (which only reads passwords on first init) stays in sync.
 replacements = {
     'DJANGO_SECRET_KEY': secrets.token_urlsafe(64),
     'FIELD_ENCRYPTION_KEY': base64.urlsafe_b64encode(os.urandom(32)).decode(),
-    'MYSQL_ROOT_PASSWORD': secrets.token_urlsafe(32),
+    'MYSQL_ROOT_PASSWORD': 'dev_root_pw',
+    'DB_PASSWORD': 'warehouse_pass',
+    'MYSQL_PASSWORD': 'warehouse_pass',
 }
-# DB_PASSWORD and MYSQL_PASSWORD must match
-db_pw = secrets.token_urlsafe(32)
-replacements['DB_PASSWORD'] = db_pw
-replacements['MYSQL_PASSWORD'] = db_pw
 
 with open(env_path, 'r') as f:
     content = f.read()
@@ -119,17 +119,10 @@ check_prerequisites() {
   success "Docker daemon is running"
   success "docker compose $(docker compose version --short) available"
 
-  # .env file
+  # .env file (ensure_env already ran in main, so this is a safety check)
   if [[ ! -f "$ENV_FILE" ]]; then
-    if [[ -f "$ENV_EXAMPLE" ]]; then
-      warn ".env not found — copying from .env.example and generating secrets"
-      cp "$ENV_EXAMPLE" "$ENV_FILE"
-      _generate_env_secrets
-      warn "Review .env and set real secrets before production use."
-    else
-      error ".env file missing and no .env.example to copy from."
-      exit 1
-    fi
+    error ".env file missing and no .env.example to copy from."
+    exit 1
   fi
   success ".env file present"
 
@@ -398,12 +391,27 @@ cmd_shell() {
   $COMPOSE exec backend python manage.py shell
 }
 
+# ── Ensure .env exists ────────────────────────────────────────────────────────
+# Called at the very top of main() — before any Docker commands — so that
+# docker compose up always sees a valid .env and MySQL initialises with the
+# correct passwords on first boot.
+ensure_env() {
+  if [[ ! -f "$ENV_FILE" ]]; then
+    if [[ -f "$ENV_EXAMPLE" ]]; then
+      warn ".env not found — copying from .env.example and generating secrets"
+      cp "$ENV_EXAMPLE" "$ENV_FILE"
+      _generate_env_secrets
+    fi
+  fi
+}
+
 # ── Entrypoint ────────────────────────────────────────────────────────────────
 main() {
   local cmd="${1:-start}"
   shift || true
 
   cd "$SCRIPT_DIR"
+  ensure_env
 
   case "$cmd" in
     start)          cmd_start ;;
