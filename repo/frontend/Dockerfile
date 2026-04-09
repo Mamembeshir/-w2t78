@@ -5,13 +5,13 @@
 #   production — Nginx serving built static files (Phase 9.5)
 
 # ── Development stage ─────────────────────────────────────────────────────────
-FROM node:20-alpine AS dev
+FROM node:20-slim AS dev
 
 WORKDIR /app
 
 # Copy manifests first for layer caching
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 
 # Source mounted as volume in docker-compose (live reload)
 COPY . .
