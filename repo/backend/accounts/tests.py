@@ -430,6 +430,29 @@ class UserManagementTests(TestCase):
         resp = self.client.post(f"/api/users/{user.pk}/reset-password/", {})
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_reset_password_wrong_key_new_password_returns_400(self):
+        """Sending 'new_password' (frontend bug field name) must be rejected — backend expects 'password'."""
+        user = create_user("wrongkey", "initialpass13")
+        resp = self.client.post(
+            f"/api/users/{user.pk}/reset-password/",
+            {"new_password": "brandnewpass1"},
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        # Password must not have changed
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("initialpass13"))
+
+    def test_reset_password_correct_key_password_succeeds(self):
+        """Sending 'password' (correct field name) must return 200 and update the hash."""
+        user = create_user("correctkey", "initialpass14")
+        resp = self.client.post(
+            f"/api/users/{user.pk}/reset-password/",
+            {"password": "updatedpass99"},
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("updatedpass99"))
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 3.3 — Audit Middleware

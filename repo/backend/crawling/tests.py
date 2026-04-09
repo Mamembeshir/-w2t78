@@ -12,6 +12,7 @@ Tests cover:
   6.5  Worker execution (real HTTP to local health endpoint)
   6.6  Request log pruning to last 20 per source
   6.7  Canary monitoring (auto-rollback, auto-promote)
+  6.8  honor_local_crawl_delay field and worker branch behavior
 """
 import hashlib
 import json
@@ -683,11 +684,47 @@ class CrawlingRBACTests(TestCase):
         resp = self.client.get("/api/crawl/sources/")
         self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_manager_can_list_sources(self):
-        """Any authenticated user may list sources (IsAuthenticated on list)."""
+    def test_manager_cannot_list_sources(self):
+        """INVENTORY_MANAGER must not list crawl sources (403)."""
         self._auth(self.manager)
         resp = self.client.get("/api/crawl/sources/")
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_analyst_can_list_sources(self):
+        """PROCUREMENT_ANALYST may list crawl sources (200)."""
+        self._auth(self.analyst)
+        resp = self.client.get("/api/crawl/sources/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+    def test_admin_can_list_sources(self):
+        """ADMIN may list crawl sources (200)."""
+        self._auth(self.admin)
+        resp = self.client.get("/api/crawl/sources/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+    def test_manager_cannot_retrieve_source_detail(self):
+        """INVENTORY_MANAGER must not view crawl source detail (403)."""
+        self._auth(self.manager)
+        resp = self.client.get(f"/api/crawl/sources/{self.source.pk}/")
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_manager_cannot_list_rule_versions(self):
+        """INVENTORY_MANAGER must not list rule versions for a source (403)."""
+        self._auth(self.manager)
+        resp = self.client.get(f"/api/crawl/sources/{self.source.pk}/rule-versions/")
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_manager_cannot_view_debug_log(self):
+        """INVENTORY_MANAGER must not access the debug log endpoint (403)."""
+        self._auth(self.manager)
+        resp = self.client.get(f"/api/crawl/sources/{self.source.pk}/debug-log/")
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_manager_cannot_view_quota(self):
+        """INVENTORY_MANAGER must not view source quota state (403)."""
+        self._auth(self.manager)
+        resp = self.client.get(f"/api/crawl/sources/{self.source.pk}/quota/")
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     # ── Sources — create (ProcurementAnalyst / Admin only) ─────────────────────
 
@@ -793,3 +830,309 @@ class WorkerConstantsTests(TestCase):
             version_note="spec constant test",
         )
         self.assertEqual(rv.canary_pct, 5, "SPEC: canary routes 5% of tasks")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Response snippet redaction (security — Finding 3)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class _FakeResponse:
+    """Minimal stand-in for requests.Response used in _log_request tests."""
+    def __init__(self, text, status_code=200):
+        self.text = text
+        self.status_code = status_code
+
+
+class ResponseSnippetRedactionTests(TestCase):
+    """
+    Verify that _log_request masks sensitive values in response bodies
+    before persisting to CrawlRequestLog.response_snippet.
+    """
+
+    def setUp(self):
+        self.source = make_source("REDACT_SRC")
+        self.rv = make_rule_version(self.source, version_number=1, is_active=True)
+        fp = _compute_fingerprint("http://redact.local/data", {})
+        self.task = CrawlTask.objects.create(
+            source=self.source,
+            rule_version=self.rv,
+            fingerprint=fp,
+            url="http://redact.local/data",
+            status=CrawlTaskStatus.PENDING,
+        )
+
+    def _call_log_request(self, response_text):
+        from .worker import _log_request
+        _log_request(
+            task=self.task,
+            url="http://redact.local/data",
+            headers={},
+            response=_FakeResponse(response_text),
+            duration_ms=50,
+        )
+        return CrawlRequestLog.objects.filter(task=self.task).order_by("-timestamp").first()
+
+    def test_bearer_token_in_response_body_is_redacted(self):
+        """Authorization: Bearer <token> patterns in response text must be masked."""
+        raw = 'Authorization: Bearer supersecrettoken123'
+        log = self._call_log_request(raw)
+        self.assertNotIn("supersecrettoken123", log.response_snippet)
+        self.assertIn("[REDACTED]", log.response_snippet)
+
+    def test_json_access_token_in_response_body_is_redacted(self):
+        """{"access_token": "..."} in response body must be masked."""
+        raw = '{"access_token": "eyJhbGciOiJSUzI1NiJ9.payload.sig", "expires_in": 3600}'
+        log = self._call_log_request(raw)
+        self.assertNotIn("eyJhbGciOiJSUzI1NiJ9", log.response_snippet)
+        self.assertIn("[REDACTED]", log.response_snippet)
+
+    def test_json_password_in_response_body_is_redacted(self):
+        """{"password": "..."} in response body must be masked."""
+        raw = '{"username": "admin", "password": "hunter2"}'
+        log = self._call_log_request(raw)
+        self.assertNotIn("hunter2", log.response_snippet)
+        self.assertIn("[REDACTED]", log.response_snippet)
+
+    def test_non_sensitive_response_body_unchanged(self):
+        """Ordinary response content (no secrets) must pass through unmodified."""
+        raw = '{"id": 42, "name": "Widget A", "price": "9.99"}'
+        log = self._call_log_request(raw)
+        self.assertIn("Widget A", log.response_snippet)
+        self.assertIn("9.99", log.response_snippet)
+
+    def test_empty_response_stores_empty_snippet(self):
+        """A None response (e.g. connection error before any data) stores empty string."""
+        from .worker import _log_request
+        _log_request(
+            task=self.task,
+            url="http://redact.local/data",
+            headers={},
+            response=None,
+            duration_ms=0,
+        )
+        log = CrawlRequestLog.objects.filter(task=self.task).order_by("-timestamp").first()
+        self.assertEqual(log.response_snippet, "")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 365-day crawl record retention purge (Finding 4)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class CrawlRecordRetentionTests(TestCase):
+    """
+    Verify purge_old_crawl_records deletes CrawlTask and CrawlRequestLog rows
+    older than 365 days and leaves recent rows intact.
+    """
+
+    def setUp(self):
+        self.source = make_source("RETENTION_SRC")
+        self.rv = make_rule_version(self.source, version_number=1, is_active=True)
+
+    def _make_task(self, label, task_status=CrawlTaskStatus.COMPLETED):
+        fp = _compute_fingerprint(f"http://ret.local/{label}", {})
+        return CrawlTask.objects.create(
+            source=self.source,
+            rule_version=self.rv,
+            fingerprint=fp,
+            url=f"http://ret.local/{label}",
+            status=task_status,
+        )
+
+    def _make_log(self, task):
+        return CrawlRequestLog.objects.create(
+            task=task,
+            request_url=task.url,
+            request_headers="{}",
+            response_status=200,
+            response_snippet="ok",
+            duration_ms=10,
+        )
+
+    def _age(self, obj, model_class, days):
+        """Back-date created_at on obj to `days` ago via queryset update."""
+        old_ts = timezone.now() - timedelta(days=days)
+        model_class.objects.filter(pk=obj.pk).update(created_at=old_ts)
+
+    def test_old_completed_tasks_are_deleted(self):
+        from .tasks import purge_old_crawl_records
+        old_task = self._make_task("old_completed")
+        self._age(old_task, CrawlTask, 366)
+
+        result = purge_old_crawl_records()
+
+        self.assertFalse(CrawlTask.objects.filter(pk=old_task.pk).exists())
+        self.assertGreaterEqual(result["tasks_deleted"], 1)
+
+    def test_recent_completed_tasks_are_kept(self):
+        from .tasks import purge_old_crawl_records
+        recent_task = self._make_task("recent_completed")
+        # created_at defaults to now — within 365-day window
+
+        purge_old_crawl_records()
+
+        self.assertTrue(CrawlTask.objects.filter(pk=recent_task.pk).exists())
+
+    def test_pending_tasks_not_deleted_even_if_old(self):
+        """Active-state tasks (PENDING/RUNNING) must never be purged."""
+        from .tasks import purge_old_crawl_records
+        pending_task = self._make_task("old_pending", task_status=CrawlTaskStatus.PENDING)
+        self._age(pending_task, CrawlTask, 400)
+
+        purge_old_crawl_records()
+
+        self.assertTrue(CrawlTask.objects.filter(pk=pending_task.pk).exists())
+
+    def test_old_request_logs_are_deleted(self):
+        from .tasks import purge_old_crawl_records
+        task = self._make_task("log_task")
+        log = self._make_log(task)
+        self._age(log, CrawlRequestLog, 366)
+
+        result = purge_old_crawl_records()
+
+        self.assertFalse(CrawlRequestLog.objects.filter(pk=log.pk).exists())
+        self.assertGreaterEqual(result["request_logs_deleted"], 1)
+
+    def test_recent_request_logs_are_kept(self):
+        from .tasks import purge_old_crawl_records
+        task = self._make_task("recent_log_task")
+        log = self._make_log(task)
+
+        purge_old_crawl_records()
+
+        self.assertTrue(CrawlRequestLog.objects.filter(pk=log.pk).exists())
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 6.8  honor_local_crawl_delay — field default and worker branch (CLAUDE.md §9)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class CrawlDelayFieldTests(TestCase):
+    """Model and API contract tests for honor_local_crawl_delay."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.analyst = create_user("delay_analyst", Role.PROCUREMENT_ANALYST)
+        self.token = login(self.client, "delay_analyst")
+
+    def test_honor_local_crawl_delay_defaults_to_true(self):
+        """New CrawlSource must default honor_local_crawl_delay to True (CLAUDE.md §9)."""
+        source = make_source("DELAY_DEFAULT_SRC")
+        self.assertTrue(source.honor_local_crawl_delay)
+
+    def test_honor_false_persists_to_db(self):
+        source = CrawlSource.objects.create(
+            name="DELAY_FALSE_SRC",
+            base_url="http://delay.local",
+            honor_local_crawl_delay=False,
+            user_agents=[],
+        )
+        source.refresh_from_db()
+        self.assertFalse(source.honor_local_crawl_delay)
+
+    def test_api_exposes_honor_local_crawl_delay_field(self):
+        """GET /api/crawl/sources/ response must include honor_local_crawl_delay."""
+        make_source("DELAY_API_SRC")
+        auth(self.client, self.token)
+        resp = self.client.get("/api/crawl/sources/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        results = resp.json()["results"]
+        self.assertTrue(len(results) > 0)
+        self.assertIn("honor_local_crawl_delay", results[0])
+
+    def test_api_can_set_honor_false_on_create(self):
+        """POST /api/crawl/sources/ should accept honor_local_crawl_delay=false."""
+        auth(self.client, self.token)
+        resp = self.client.post("/api/crawl/sources/", {
+            "name": "DELAY_CREATE_FALSE",
+            "base_url": "http://delay-create.local",
+            "honor_local_crawl_delay": False,
+            "user_agents": [],
+        }, format="json")
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        self.assertFalse(resp.json()["honor_local_crawl_delay"])
+
+
+class CrawlDelayBehaviorTests(LiveServerTestCase):
+    """
+    Worker integration tests for honor_local_crawl_delay.
+
+    Uses a 2-page pagination config so the delay condition (page > start_page)
+    can fire.  crawl_delay_seconds=1 is large enough to measure reliably.
+
+    - honor=False: 2-page crawl completes in well under 1 s (no sleep).
+    - honor=True:  2-page crawl takes >= 1 s (one inter-page sleep).
+    """
+
+    def _make_source(self, name, honor):
+        return CrawlSource.objects.create(
+            name=name,
+            base_url=self.live_server_url,
+            rate_limit_rpm=600,
+            crawl_delay_seconds=1,
+            honor_local_crawl_delay=honor,
+            user_agents=["TestAgent/1.0"],
+        )
+
+    def _make_two_page_rv(self, source):
+        return CrawlRuleVersion.objects.create(
+            source=source,
+            version_number=1,
+            url_pattern=f"{self.live_server_url}/api/health/",
+            parameters={},
+            pagination_config={
+                "type": "page_number",
+                "param": "page",
+                "max_pages": 2,
+            },
+            is_active=True,
+        )
+
+    def _make_task(self, source, rv):
+        url = f"{self.live_server_url}/api/health/"
+        fp = _compute_fingerprint(url, {})
+        return CrawlTask.objects.create(
+            source=source,
+            rule_version=rv,
+            fingerprint=fp,
+            url=url,
+            status=CrawlTaskStatus.PENDING,
+        )
+
+    def test_delay_skipped_when_honor_false(self):
+        """With honor_local_crawl_delay=False, inter-page sleep is not called."""
+        import time as _time
+        from .worker import execute_crawl_task
+
+        source = self._make_source("DELAY_SKIP_SRC", honor=False)
+        rv = self._make_two_page_rv(source)
+        task = self._make_task(source, rv)
+
+        start = _time.monotonic()
+        execute_crawl_task(task.pk)
+        elapsed = _time.monotonic() - start
+
+        task.refresh_from_db()
+        self.assertEqual(task.status, CrawlTaskStatus.COMPLETED)
+        # No sleep: 2 real HTTP requests to localhost should finish well under 1 s
+        self.assertLess(elapsed, 0.8,
+            f"Expected < 0.8 s with honor=False but took {elapsed:.2f} s")
+
+    def test_delay_applied_when_honor_true(self):
+        """With honor_local_crawl_delay=True, inter-page sleep of 1 s fires once."""
+        import time as _time
+        from .worker import execute_crawl_task
+
+        source = self._make_source("DELAY_APPLY_SRC", honor=True)
+        rv = self._make_two_page_rv(source)
+        task = self._make_task(source, rv)
+
+        start = _time.monotonic()
+        execute_crawl_task(task.pk)
+        elapsed = _time.monotonic() - start
+
+        task.refresh_from_db()
+        self.assertEqual(task.status, CrawlTaskStatus.COMPLETED)
+        # One inter-page sleep of 1 s must be present
+        self.assertGreaterEqual(elapsed, 1.0,
+            f"Expected >= 1.0 s with honor=True but took {elapsed:.2f} s")

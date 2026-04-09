@@ -45,6 +45,8 @@ def health(request):
     return JsonResponse(payload, status=200 if all_ok else 503)
 
 
+from notifications.views import system_settings, test_smtp, test_sms
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/health/", health, name="health"),
@@ -58,6 +60,10 @@ urlpatterns = [
     path("api/crawl/", include("crawling.urls")),
     # Notifications — Phase 7
     path("api/notifications/", include("notifications.urls")),
+    # System settings (admin-only) — Phase 7
+    path("api/settings/", system_settings, name="system-settings"),
+    path("api/settings/test-smtp/", test_smtp, name="settings-test-smtp"),
+    path("api/settings/test-sms/", test_sms, name="settings-test-sms"),
     # Audit log — Phase 9
     path("api/", include("audit.urls")),
 ]

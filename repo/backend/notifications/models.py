@@ -121,6 +121,31 @@ class OutboundMessage(TimeStampedModel):
         return f"{self.channel}/{self.status} — {self.notification.title}"
 
 
+class SystemSettings(models.Model):
+    """
+    Singleton model for system-wide notification gateway configuration.
+
+    Retrieve the single row via SystemSettings.get().
+    Admin-only: readable and writable only by users with the Admin role.
+    """
+
+    smtp_host = models.CharField(max_length=253, blank=True)
+    smtp_port = models.PositiveSmallIntegerField(default=25)
+    smtp_use_tls = models.BooleanField(default=False)
+    sms_gateway_url = models.CharField(max_length=500, blank=True)
+
+    class Meta:
+        db_table = "notifications_system_settings"
+
+    @classmethod
+    def get(cls) -> "SystemSettings":
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def __str__(self):
+        return f"SystemSettings(smtp={self.smtp_host or '—'}, sms={self.sms_gateway_url or '—'})"
+
+
 class DigestSchedule(TimeStampedModel):
     """
     Per-user daily digest send schedule.

@@ -34,7 +34,7 @@ header()  { echo -e "\n${BOLD}${CYAN}$*${RESET}\n"; }
 # ── Paths ─────────────────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="$SCRIPT_DIR/.env"
-ENV_EXAMPLE="$SCRIPT_DIR/docker/.env.example"
+ENV_EXAMPLE="$SCRIPT_DIR/.env.example"
 COMPOSE="docker compose"
 
 # ── Timeouts (seconds) ────────────────────────────────────────────────────────
@@ -86,9 +86,11 @@ check_prerequisites() {
   fi
   success ".env file present"
 
-  # Warn if using placeholder secret key
-  if grep -q "changeme" "$ENV_FILE" 2>/dev/null; then
-    warn "DJANGO_SECRET_KEY still contains placeholder — update .env for production!"
+  # Abort if any CHANGE_ME placeholder remains in the active .env
+  if grep -qi "CHANGE_ME" "$ENV_FILE" 2>/dev/null; then
+    error "One or more CHANGE_ME placeholders remain in .env — replace them before starting the stack."
+    error "Generate DJANGO_SECRET_KEY with: python -c \"import secrets; print(secrets.token_urlsafe(64))\""
+    exit 1
   fi
 }
 

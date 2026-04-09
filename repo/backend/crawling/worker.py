@@ -91,7 +91,7 @@ def _log_request(task: CrawlTask, url: str, headers: dict,
         request_url=url,
         request_headers=_mask_headers(headers),
         response_status=response.status_code if response else None,
-        response_snippet=(response.text[:500] if response else ""),
+        response_snippet=(_mask(response.text[:500]) if response else ""),
         duration_ms=duration_ms,
     )
     # Keep only the last 20 logs for this source (across all tasks)
@@ -228,8 +228,8 @@ def _do_execute(task: CrawlTask) -> dict:
         start_time = time.time()
         response = None
 
-        # Honor crawl delay between requests
-        if source.crawl_delay_seconds > 0 and page > start_page:
+        # Honor crawl delay from local ruleset between requests (CLAUDE.md §9)
+        if source.honor_local_crawl_delay and source.crawl_delay_seconds > 0 and page > start_page:
             time.sleep(source.crawl_delay_seconds)
 
         try:

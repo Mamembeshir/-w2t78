@@ -24,13 +24,14 @@ export interface CrawlRuleVersion {
   source: number
   version_number: number
   version_note: string
+  url_pattern: string
+  parameters: Record<string, unknown> | null
+  pagination_config: Record<string, unknown> | null
   is_active: boolean
   is_canary: boolean
   canary_pct: number
   canary_started_at: string | null
   canary_error_rate: number | null
-  pagination_config: Record<string, unknown> | null
-  parameters: Record<string, unknown> | null
   request_headers_masked: Record<string, string>
   created_by: number | null
   created_at: string
@@ -134,7 +135,13 @@ export function useRuleVersions(sourceId: number | null) {
 export function useCreateRuleVersion(sourceId: number) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (data: { version_note: string; pagination_config?: unknown; parameters?: unknown }) =>
+    mutationFn: (data: {
+      version_note: string
+      url_pattern: string
+      parameters?: unknown
+      pagination_config?: unknown
+      request_headers?: string
+    }) =>
       api.post<CrawlRuleVersion>(`/api/crawl/sources/${sourceId}/rule-versions/`, data).then(r => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['crawl-rule-versions', sourceId] }),
   })

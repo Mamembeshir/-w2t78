@@ -27,7 +27,8 @@ class CrawlSourceSerializer(serializers.ModelSerializer):
         model = CrawlSource
         fields = [
             "id", "name", "base_url", "is_active",
-            "rate_limit_rpm", "crawl_delay_seconds", "user_agents",
+            "rate_limit_rpm", "crawl_delay_seconds", "honor_local_crawl_delay",
+            "user_agents",
             "created_by", "created_by_username",
             "active_rule_version",
             "created_at", "updated_at",

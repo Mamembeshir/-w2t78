@@ -3,7 +3,7 @@ import { StatCard } from '@/components/ui/Card'
 import { DataTable } from '@/components/ui/DataTable'
 import { Badge, RoleBadge } from '@/components/ui/Badge'
 import { UsersIcon, ShieldCheckIcon, Cog6ToothIcon } from '@/components/ui/icons'
-import { useUsers, useAuditLog } from '@/hooks/useAdmin'
+import { useUsers, useAuditLog, useHealthCheck } from '@/hooks/useAdmin'
 import type { Column } from '@/types'
 
 interface AuditRow extends Record<string, unknown> { id: string; user: string; action: string; model_name: string; object_id: string; ip_address: string; timestamp: string }
@@ -37,10 +37,20 @@ const USER_COLUMNS: Column<UserRow>[] = [
 export function AdminDashboard() {
   const { data: usersData, isLoading: usersLoading } = useUsers()
   const { data: auditData, isLoading: auditLoading } = useAuditLog()
+  const { data: health, isLoading: healthLoading } = useHealthCheck()
 
   const totalUsers = usersData?.count ?? 0
   const activeUsers = usersData?.results?.filter(u => u.is_active)?.length ?? 0
   const auditCount = auditData?.count ?? 0
+
+  const healthOk = health?.status === 'ok'
+  const healthValue = healthLoading ? '…' : healthOk ? 'OK' : 'Degraded'
+  const healthSublabel = healthLoading
+    ? 'Checking services…'
+    : health
+      ? `DB: ${health.db} · Redis: ${health.redis}`
+      : 'Health endpoint unreachable'
+  const healthAccent = (!healthLoading && !healthOk) ? 'danger' : 'success'
 
   const userRows: UserRow[] = (usersData?.results ?? []).map(u => ({
     id: String(u.id),
@@ -80,10 +90,10 @@ export function AdminDashboard() {
         />
         <StatCard
           label="System Status"
-          value="OK"
-          sublabel="All services up"
+          value={healthValue}
+          sublabel={healthSublabel}
           icon={<Cog6ToothIcon className="w-5 h-5" />}
-          accent="success"
+          accent={healthAccent}
         />
       </div>
 

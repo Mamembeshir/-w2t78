@@ -15,7 +15,11 @@ Routes (all prefixed /api/notifications/):
   GET  digest/                 — my digest schedule
   PATCH digest/                — update send_time or toggle
 """
+import logging
+
 from django.utils import timezone
+
+logger = logging.getLogger(__name__)
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -29,12 +33,14 @@ from .models import (
     NotificationSubscription,
     OutboundMessage,
     OutboundStatus,
+    SystemSettings,
 )
 from .serializers import (
     DigestScheduleSerializer,
     NotificationSerializer,
     NotificationSubscriptionSerializer,
     OutboundMessageSerializer,
+    SystemSettingsSerializer,
 )
 
 
@@ -206,3 +212,86 @@ def digest_schedule(request):
         return Response(ser.data)
 
     return Response(DigestScheduleSerializer(schedule).data)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# System Settings (admin-only)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@api_view(["GET", "PATCH"])
+@permission_classes([IsAdmin])
+def system_settings(request):
+    """
+    GET   /api/settings/   — retrieve current gateway configuration
+    PATCH /api/settings/   — update smtp/sms settings
+    """
+    settings_obj = SystemSettings.get()
+
+    if request.method == "PATCH":
+        ser = SystemSettingsSerializer(settings_obj, data=request.data, partial=True)
+        ser.is_valid(raise_exception=True)
+        ser.save()
+        return Response(ser.data)
+
+    return Response(SystemSettingsSerializer(settings_obj).data)
+
+
+@api_view(["POST"])
+@permission_classes([IsAdmin])
+def test_smtp(request):
+    """
+    POST /api/settings/test-smtp/
+    Opens a real SMTP connection to the configured host and closes it.
+    Returns 200 on success, 400 with {message} on failure.
+    """
+    s = SystemSettings.get()
+    if not s.smtp_host:
+        return Response({"message": "SMTP host is not configured."}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        from django.core.mail.backends.smtp import EmailBackend
+        backend = EmailBackend(
+            host=s.smtp_host,
+            port=s.smtp_port,
+            use_tls=s.smtp_use_tls,
+            fail_silently=False,
+            timeout=10,
+        )
+        backend.open()
+        backend.close()
+        return Response({"message": "SMTP connection succeeded."})
+    except Exception as exc:
+        logger.warning("SMTP connectivity test failed for host %r: %s", s.smtp_host, exc)
+        return Response(
+            {"message": "SMTP connection failed. Check server logs for details."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+
+@api_view(["POST"])
+@permission_classes([IsAdmin])
+def test_sms(request):
+    """
+    POST /api/settings/test-sms/
+    Sends a test POST to the configured SMS gateway URL.
+    Returns 200 on success, 400 with {message} on failure.
+    """
+    s = SystemSettings.get()
+    if not s.sms_gateway_url:
+        return Response({"message": "SMS gateway URL is not configured."}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        import requests as http_requests
+        resp = http_requests.post(
+            s.sms_gateway_url,
+            json={"to": "test", "message": "Gateway connectivity test"},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        return Response({"message": "SMS gateway test succeeded."})
+    except Exception as exc:
+        logger.warning("SMS gateway connectivity test failed for url %r: %s", s.sms_gateway_url, exc)
+        return Response(
+            {"message": "SMS gateway connection failed. Check server logs for details."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )

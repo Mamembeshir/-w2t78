@@ -73,6 +73,21 @@ export function useUpdateUser() {
   })
 }
 
+export interface HealthStatus {
+  status: 'ok' | 'degraded'
+  db: 'ok' | 'error'
+  redis: 'ok' | 'error'
+}
+
+export function useHealthCheck() {
+  return useQuery({
+    queryKey: ['health'],
+    queryFn: () => api.get<HealthStatus>('/api/health/').then(r => r.data),
+    refetchInterval: 30_000,
+    retry: false,
+  })
+}
+
 export function useAuditLog(params?: { model?: string; action?: string; from_date?: string; to_date?: string; page?: number }) {
   return useQuery({
     queryKey: ['audit', params],

@@ -12,8 +12,10 @@ Tests cover:
   7.5  Outbound queueing — messages queued when no gateway configured
   7.6  Outbound queued endpoint (admin only)
   7.7  Digest schedule API — get and patch
+  7.8  System Settings API — auth/validation/error contract
 """
 from datetime import timedelta
+
 
 from django.test import TestCase
 from django.utils import timezone
@@ -138,15 +140,46 @@ class DispatcherTests(TestCase):
         self.assertIsNone(n.read_at)
 
     def test_outbound_message_queued_when_no_gateway(self):
-        """No SMTP_HOST or SMS_GATEWAY_URL → no OutboundMessage created."""
+        """
+        When no gateway is configured, OutboundMessages are still created with
+        QUEUED status so they are available for manual export (SPEC §7).
+        """
+        from .models import OutboundChannel, OutboundStatus
         subscribe(self.user1, EventType.CRAWL_TASK_FAILED)
         dispatch_event(
             EventType.CRAWL_TASK_FAILED,
             title="Failed",
             body="Test.",
         )
-        # No gateway configured in test settings → no outbound messages
-        self.assertEqual(OutboundMessage.objects.count(), 0)
+        # One SMTP row + one SMS row created per notification, both QUEUED
+        self.assertEqual(OutboundMessage.objects.count(), 2)
+        channels = set(OutboundMessage.objects.values_list("channel", flat=True))
+        self.assertIn(OutboundChannel.SMTP, channels)
+        self.assertIn(OutboundChannel.SMS, channels)
+        queued = OutboundMessage.objects.filter(status=OutboundStatus.QUEUED).count()
+        self.assertEqual(queued, 2)
+
+    def test_outbound_message_smtp_attempted_when_smtp_configured(self):
+        """
+        When smtp_host is set in SystemSettings, dispatch attempts SMTP delivery
+        immediately (fails with bogus host → FAILED status, not QUEUED).
+        """
+        from .models import OutboundChannel, OutboundStatus, SystemSettings
+        subscribe(self.user1, EventType.CRAWL_TASK_FAILED)
+        self.user1.email = "analyst@warehouse.local"
+        self.user1.save()
+
+        cfg = SystemSettings.get()
+        cfg.smtp_host = "localhost"
+        cfg.smtp_port = 1  # unreachable → triggers exception path
+        cfg.save()
+
+        dispatch_event(EventType.CRAWL_TASK_FAILED, title="T", body="B")
+
+        smtp_msg = OutboundMessage.objects.get(channel=OutboundChannel.SMTP)
+        # Immediate delivery was attempted; bogus host → FAILED (not QUEUED)
+        self.assertEqual(smtp_msg.status, OutboundStatus.FAILED)
+        self.assertTrue(len(smtp_msg.error) > 0)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -550,13 +583,14 @@ class SendOutboundQueuedTaskTests(TestCase):
 
     def test_returns_zero_when_no_queued_messages(self):
         result = send_outbound_queued()
-        self.assertEqual(result["sent"], 0)
+        self.assertEqual(result["attempted"], 0)
+        self.assertEqual(result["sent_success"], 0)
 
     def test_queued_smtp_not_sent_when_no_smtp_host(self):
         """With no SMTP_HOST, queued SMTP messages remain untouched."""
         self._make_queued(self.OutboundChannel.SMTP)
         result = send_outbound_queued()
-        self.assertEqual(result["sent"], 0)
+        self.assertEqual(result["attempted"], 0)
         # Status must still be QUEUED
         self.assertEqual(
             OutboundMessage.objects.filter(status=OutboundStatus.QUEUED).count(), 1
@@ -566,7 +600,7 @@ class SendOutboundQueuedTaskTests(TestCase):
         """With no SMS_GATEWAY_URL, queued SMS messages remain untouched."""
         self._make_queued(self.OutboundChannel.SMS)
         result = send_outbound_queued()
-        self.assertEqual(result["sent"], 0)
+        self.assertEqual(result["attempted"], 0)
         self.assertEqual(
             OutboundMessage.objects.filter(status=OutboundStatus.QUEUED).count(), 1
         )
@@ -578,7 +612,7 @@ class SendOutboundQueuedTaskTests(TestCase):
         msg.save()
 
         result = send_outbound_queued()
-        self.assertEqual(result["sent"], 0)
+        self.assertEqual(result["attempted"], 0)
 
     def test_already_failed_messages_are_not_retried(self):
         """Messages in FAILED status are not processed by the retry task."""
@@ -587,21 +621,331 @@ class SendOutboundQueuedTaskTests(TestCase):
         msg.save()
 
         result = send_outbound_queued()
-        self.assertEqual(result["sent"], 0)
+        self.assertEqual(result["attempted"], 0)
 
     def test_queued_smtp_attempted_when_smtp_host_set(self):
-        """When SMTP_HOST is set, the task attempts delivery (will fail → FAILED status)."""
-        from django.test import override_settings
+        """
+        When smtp_host is set in SystemSettings, send_outbound_queued attempts
+        delivery (fails with bogus host → FAILED status).
+        attempted increments; sent_success stays 0 because the send failed.
+        Gateway config is read from SystemSettings, not from env variables.
+        """
+        from .models import SystemSettings
         self.user.email = "test@example.local"
         self.user.save()
         msg = self._make_queued(self.OutboundChannel.SMTP)
 
-        # With a bogus SMTP host the connection will fail gracefully (→ FAILED)
-        with override_settings(SMTP_HOST="localhost", SMTP_PORT=1):
-            result = send_outbound_queued()
+        # Configure gateway via SystemSettings (not env override)
+        cfg = SystemSettings.get()
+        cfg.smtp_host = "localhost"
+        cfg.smtp_port = 1  # unreachable → triggers exception path
+        cfg.save()
 
-        self.assertEqual(result["sent"], 1)  # task attempted it
+        result = send_outbound_queued()
+
+        self.assertEqual(result["attempted"], 1)
+        self.assertEqual(result["sent_success"], 0)
         msg.refresh_from_db()
-        # Delivery failed → status is FAILED (not QUEUED)
         self.assertEqual(msg.status, OutboundStatus.FAILED)
         self.assertTrue(len(msg.error) > 0)
+
+    def test_send_outbound_respects_system_settings_not_env(self):
+        """
+        send_outbound_queued must NOT use env SMTP_HOST; only SystemSettings governs delivery.
+        A QUEUED message must remain untouched when env has SMTP_HOST but SystemSettings is empty.
+        """
+        from django.test import override_settings
+        msg = self._make_queued(self.OutboundChannel.SMTP)
+
+        # Env has SMTP_HOST but SystemSettings (default) has empty smtp_host
+        with override_settings(SMTP_HOST="localhost", SMTP_PORT=25):
+            result = send_outbound_queued()
+
+        self.assertEqual(result["attempted"], 0)
+        msg.refresh_from_db()
+        self.assertEqual(msg.status, OutboundStatus.QUEUED)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 365-day notification/outbound retention purge (Finding 4)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class NotificationRetentionTests(TestCase):
+    """
+    Verify purge_old_notification_records deletes Notification and
+    OutboundMessage rows older than 365 days and retains recent ones.
+    """
+
+    def setUp(self):
+        self.user = create_user("retention_user")
+
+    def _make_notification(self):
+        return Notification.objects.create(
+            user=self.user,
+            event_type=EventType.SYSTEM,
+            title="Retention test",
+            body=".",
+        )
+
+    def _make_outbound(self, notification):
+        from .models import OutboundChannel
+        return OutboundMessage.objects.create(
+            notification=notification,
+            channel=OutboundChannel.SMTP,
+            status=OutboundStatus.QUEUED,
+        )
+
+    def _age(self, obj, model_class, days):
+        old_ts = timezone.now() - timedelta(days=days)
+        model_class.objects.filter(pk=obj.pk).update(created_at=old_ts)
+
+    def test_old_notifications_are_deleted(self):
+        from .tasks import purge_old_notification_records
+        old = self._make_notification()
+        self._age(old, Notification, 366)
+
+        result = purge_old_notification_records()
+
+        self.assertFalse(Notification.objects.filter(pk=old.pk).exists())
+        self.assertGreaterEqual(result["notifications_deleted"], 1)
+
+    def test_recent_notifications_are_kept(self):
+        from .tasks import purge_old_notification_records
+        recent = self._make_notification()
+        # created_at defaults to now — within retention window
+
+        purge_old_notification_records()
+
+        self.assertTrue(Notification.objects.filter(pk=recent.pk).exists())
+
+    def test_old_outbound_messages_are_deleted(self):
+        from .tasks import purge_old_notification_records
+        notif = self._make_notification()
+        msg = self._make_outbound(notif)
+        self._age(msg, OutboundMessage, 366)
+
+        result = purge_old_notification_records()
+
+        self.assertFalse(OutboundMessage.objects.filter(pk=msg.pk).exists())
+        self.assertGreaterEqual(result["outbound_deleted"], 1)
+
+    def test_recent_outbound_messages_are_kept(self):
+        from .tasks import purge_old_notification_records
+        notif = self._make_notification()
+        msg = self._make_outbound(notif)
+
+        purge_old_notification_records()
+
+        self.assertTrue(OutboundMessage.objects.filter(pk=msg.pk).exists())
+
+    def test_purge_returns_cutoff_isoformat(self):
+        from .tasks import purge_old_notification_records
+        result = purge_old_notification_records()
+        self.assertIn("cutoff", result)
+        # Should be parseable as an ISO datetime
+        from django.utils.dateparse import parse_datetime
+        self.assertIsNotNone(parse_datetime(result["cutoff"]))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 7.8  System Settings API — /api/settings/ and /api/settings/test-smtp|sms/
+# ─────────────────────────────────────────────────────────────────────────────
+
+class SystemSettingsAPITests(TestCase):
+    """
+    Endpoint-contract tests for the admin-only settings endpoints.
+
+    Covers:
+      - 401 when unauthenticated
+      - 403 when authenticated as non-admin
+      - 200 GET returns current settings
+      - 200 PATCH updates valid fields
+      - 400 PATCH rejects non-local SMS gateway URL
+      - 400 POST /test-smtp/ when no SMTP host configured
+      - 400 POST /test-sms/ when no SMS URL configured
+    """
+
+    SETTINGS_URL     = "/api/settings/"
+    TEST_SMTP_URL    = "/api/settings/test-smtp/"
+    TEST_SMS_URL     = "/api/settings/test-sms/"
+
+    def setUp(self):
+        self.admin    = create_user("settings_admin",   role=Role.ADMIN)
+        self.analyst  = create_user("settings_analyst", role=Role.PROCUREMENT_ANALYST)
+        self.manager  = create_user("settings_manager", role=Role.INVENTORY_MANAGER)
+        self.client   = APIClient()
+
+    # ── Authentication guard ──────────────────────────────────────────────────
+
+    def test_get_settings_unauthenticated_returns_401(self):
+        resp = self.client.get(self.SETTINGS_URL)
+        self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_patch_settings_unauthenticated_returns_401(self):
+        resp = self.client.patch(self.SETTINGS_URL, {}, content_type="application/json")
+        self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_test_smtp_unauthenticated_returns_401(self):
+        resp = self.client.post(self.TEST_SMTP_URL)
+        self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_test_sms_unauthenticated_returns_401(self):
+        resp = self.client.post(self.TEST_SMS_URL)
+        self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    # ── Role guard ────────────────────────────────────────────────────────────
+
+    def test_get_settings_analyst_returns_403(self):
+        auth(self.client, login(self.client, "settings_analyst"))
+        resp = self.client.get(self.SETTINGS_URL)
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_get_settings_manager_returns_403(self):
+        auth(self.client, login(self.client, "settings_manager"))
+        resp = self.client.get(self.SETTINGS_URL)
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_test_smtp_non_admin_returns_403(self):
+        auth(self.client, login(self.client, "settings_analyst"))
+        resp = self.client.post(self.TEST_SMTP_URL)
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_test_sms_non_admin_returns_403(self):
+        auth(self.client, login(self.client, "settings_analyst"))
+        resp = self.client.post(self.TEST_SMS_URL)
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    # ── GET 200 ───────────────────────────────────────────────────────────────
+
+    def test_get_settings_admin_returns_200_with_expected_fields(self):
+        auth(self.client, login(self.client, "settings_admin"))
+        resp = self.client.get(self.SETTINGS_URL)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.json()
+        for field in ("smtp_host", "smtp_port", "smtp_use_tls", "sms_gateway_url"):
+            self.assertIn(field, data)
+
+    # ── PATCH 200 ─────────────────────────────────────────────────────────────
+
+    def test_patch_smtp_host_admin_returns_200_and_persists(self):
+        auth(self.client, login(self.client, "settings_admin"))
+        resp = self.client.patch(
+            self.SETTINGS_URL,
+            {"smtp_host": "mailrelay.local", "smtp_port": 587},
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.json()
+        self.assertEqual(data["smtp_host"], "mailrelay.local")
+        self.assertEqual(data["smtp_port"], 587)
+
+        # Verify DB persistence
+        from .models import SystemSettings
+        cfg = SystemSettings.get()
+        self.assertEqual(cfg.smtp_host, "mailrelay.local")
+
+    def test_patch_local_sms_url_returns_200(self):
+        auth(self.client, login(self.client, "settings_admin"))
+        resp = self.client.patch(
+            self.SETTINGS_URL,
+            {"sms_gateway_url": "http://192.168.1.10:8080/sms"},
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.json()["sms_gateway_url"], "http://192.168.1.10:8080/sms")
+
+    # ── PATCH 400 — validation ────────────────────────────────────────────────
+
+    def test_patch_external_sms_url_returns_400(self):
+        """Offline policy: public internet SMS gateway URLs must be rejected."""
+        auth(self.client, login(self.client, "settings_admin"))
+        resp = self.client.patch(
+            self.SETTINGS_URL,
+            {"sms_gateway_url": "https://api.twilio.com/sms"},
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("sms_gateway_url", resp.json())
+
+    def test_patch_invalid_scheme_sms_url_returns_400(self):
+        auth(self.client, login(self.client, "settings_admin"))
+        resp = self.client.patch(
+            self.SETTINGS_URL,
+            {"sms_gateway_url": "ftp://192.168.1.5/sms"},
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("sms_gateway_url", resp.json())
+
+    def test_patch_external_smtp_host_returns_400(self):
+        """Offline policy: public internet SMTP hosts must be rejected."""
+        auth(self.client, login(self.client, "settings_admin"))
+        resp = self.client.patch(
+            self.SETTINGS_URL,
+            {"smtp_host": "smtp.gmail.com"},
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("smtp_host", resp.json())
+
+    def test_patch_external_smtp_ip_returns_400(self):
+        """Offline policy: public IP as SMTP host must be rejected."""
+        auth(self.client, login(self.client, "settings_admin"))
+        resp = self.client.patch(
+            self.SETTINGS_URL,
+            {"smtp_host": "8.8.8.8"},
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("smtp_host", resp.json())
+
+    # ── /test-smtp/ — 400 when unconfigured ──────────────────────────────────
+
+    def test_test_smtp_returns_400_when_smtp_host_not_set(self):
+        from .models import SystemSettings
+        cfg = SystemSettings.get()
+        cfg.smtp_host = ""
+        cfg.save()
+
+        auth(self.client, login(self.client, "settings_admin"))
+        resp = self.client.post(self.TEST_SMTP_URL)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("message", resp.json())
+
+    def test_test_smtp_returns_400_on_connection_failure(self):
+        """With an unreachable host, test-smtp should return 400 with a message."""
+        from .models import SystemSettings
+        cfg = SystemSettings.get()
+        cfg.smtp_host = "127.0.0.1"
+        cfg.smtp_port = 1   # nothing listening here
+        cfg.save()
+
+        auth(self.client, login(self.client, "settings_admin"))
+        resp = self.client.post(self.TEST_SMTP_URL)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("message", resp.json())
+
+    # ── /test-sms/ — 400 when unconfigured ───────────────────────────────────
+
+    def test_test_sms_returns_400_when_sms_url_not_set(self):
+        from .models import SystemSettings
+        cfg = SystemSettings.get()
+        cfg.sms_gateway_url = ""
+        cfg.save()
+
+        auth(self.client, login(self.client, "settings_admin"))
+        resp = self.client.post(self.TEST_SMS_URL)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("message", resp.json())
+
+    def test_test_sms_returns_400_on_connection_failure(self):
+        """With an unreachable local gateway, test-sms should return 400."""
+        from .models import SystemSettings
+        cfg = SystemSettings.get()
+        cfg.sms_gateway_url = "http://127.0.0.1:1/sms"  # nothing listening
+        cfg.save()
+
+        auth(self.client, login(self.client, "settings_admin"))
+        resp = self.client.post(self.TEST_SMS_URL)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("message", resp.json())

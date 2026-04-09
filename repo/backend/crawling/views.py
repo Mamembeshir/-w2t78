@@ -8,7 +8,6 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -57,13 +56,13 @@ class CrawlSourceViewSet(
     viewsets.GenericViewSet,
 ):
     """
-    GET  /api/crawl/sources/         — list (any authenticated)
+    GET  /api/crawl/sources/         — list (Procurement Analyst / Admin)
     POST /api/crawl/sources/         — create (Procurement Analyst / Admin)
-    GET  /api/crawl/sources/{id}/    — detail
+    GET  /api/crawl/sources/{id}/    — detail (Procurement Analyst / Admin)
     PUT/PATCH                        — update (Procurement Analyst / Admin)
-    GET  /api/crawl/sources/{id}/rule-versions/ — list versions
-    GET  /api/crawl/sources/{id}/debug-log/     — last 20 request logs
-    GET  /api/crawl/sources/{id}/quota/         — current quota state
+    GET  /api/crawl/sources/{id}/rule-versions/ — list versions (Procurement Analyst / Admin)
+    GET  /api/crawl/sources/{id}/debug-log/     — last 20 request logs (Procurement Analyst / Admin)
+    GET  /api/crawl/sources/{id}/quota/         — current quota state (Procurement Analyst / Admin)
     """
 
     serializer_class = CrawlSourceSerializer
@@ -73,9 +72,7 @@ class CrawlSourceViewSet(
         return CrawlSource.objects.all().order_by("name")
 
     def get_permissions(self):
-        if self.action in ("create", "update", "partial_update"):
-            return [IsProcurementAnalyst()]
-        return [IsAuthenticated()]
+        return [IsProcurementAnalyst()]
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)

@@ -177,3 +177,39 @@ def promote_waiting_tasks() -> dict:
             promoted += 1
 
     return {"promoted": promoted}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 365-day retention purge
+# ─────────────────────────────────────────────────────────────────────────────
+
+_TERMINAL_STATUSES = ("COMPLETED", "FAILED", "CANCELLED")
+
+@shared_task(name="crawling.purge_old_crawl_records")
+def purge_old_crawl_records() -> dict:
+    """
+    Nightly. Delete CrawlRequestLog and terminal-state CrawlTask rows older
+    than 365 days (SPEC: 365-day audit/operational record retention).
+
+    Only COMPLETED, FAILED, and CANCELLED tasks are eligible — PENDING,
+    WAITING, RUNNING, and RETRYING tasks are never purged regardless of age.
+    """
+    from .models import CrawlRequestLog, CrawlTask
+
+    cutoff = timezone.now() - timedelta(days=365)
+
+    # Request logs first — they reference CrawlTask rows
+    deleted_logs, _ = CrawlRequestLog.objects.filter(created_at__lt=cutoff).delete()
+
+    # Terminal tasks only — never purge active-state tasks
+    deleted_tasks, _ = (
+        CrawlTask.objects
+        .filter(status__in=_TERMINAL_STATUSES, created_at__lt=cutoff)
+        .delete()
+    )
+
+    return {
+        "tasks_deleted": deleted_tasks,
+        "request_logs_deleted": deleted_logs,
+        "cutoff": cutoff.isoformat(),
+    }

@@ -45,6 +45,13 @@ class CrawlSource(TimeStampedModel):
     is_active = models.BooleanField(default=True, db_index=True)
     rate_limit_rpm = models.PositiveIntegerField(default=60)
     crawl_delay_seconds = models.PositiveIntegerField(default=1)
+    honor_local_crawl_delay = models.BooleanField(
+        default=True,
+        help_text=(
+            "When enabled, the worker respects crawl_delay_seconds from the "
+            "local ruleset between page requests (CLAUDE.md §9)."
+        ),
+    )
     user_agents = models.JSONField(default=list)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

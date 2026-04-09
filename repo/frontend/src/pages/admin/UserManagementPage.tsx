@@ -15,10 +15,9 @@ import { api } from '@/lib/api'
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const ROLE_OPTIONS = [
-  { value: 'ADMIN',              label: 'Admin' },
-  { value: 'INVENTORY_MANAGER',  label: 'Inventory Manager' },
+  { value: 'ADMIN',               label: 'Admin' },
+  { value: 'INVENTORY_MANAGER',   label: 'Inventory Manager' },
   { value: 'PROCUREMENT_ANALYST', label: 'Procurement Analyst' },
-  { value: 'VIEWER',             label: 'Viewer' },
 ]
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -49,7 +48,7 @@ export function UserManagementPage() {
   // Create form state
   const [createForm, setCreateForm] = useState({
     username: '', password: '', email: '', first_name: '', last_name: '',
-    role: 'VIEWER', is_active: true,
+    role: 'INVENTORY_MANAGER', is_active: true,
   })
   const [createErrors, setCreateErrors] = useState<Record<string, string>>({})
 
@@ -173,7 +172,7 @@ export function UserManagementPage() {
       await createUser.mutateAsync(createForm)
       toast.success('User created successfully')
       setShowCreate(false)
-      setCreateForm({ username: '', password: '', email: '', first_name: '', last_name: '', role: 'VIEWER', is_active: true })
+      setCreateForm({ username: '', password: '', email: '', first_name: '', last_name: '', role: 'INVENTORY_MANAGER', is_active: true })
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: Record<string, string[]> } })?.response?.data
       if (detail && typeof detail === 'object') {
@@ -207,7 +206,7 @@ export function UserManagementPage() {
       return
     }
     try {
-      await api.post(`/api/users/${resetTarget.id}/reset-password/`, { new_password: newPassword })
+      await api.post(`/api/users/${resetTarget.id}/reset-password/`, { password: newPassword })
       toast.success(`Password reset for ${resetTarget.username}`)
       setResetTarget(null)
       setNewPassword('')

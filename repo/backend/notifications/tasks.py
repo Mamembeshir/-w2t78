@@ -5,6 +5,8 @@ Tasks:
   send_daily_digests   — runs every minute; fires for users whose send_time matches now
   send_outbound_queued — every 5 minutes; retry QUEUED outbound messages
 """
+from datetime import timedelta
+
 from celery import shared_task
 from django.utils import timezone
 
@@ -98,26 +100,58 @@ def send_outbound_queued() -> dict:
     Runs every 5 minutes.
 
     Retries any OutboundMessage stuck in QUEUED status.
-    Useful when a gateway becomes available after the initial attempt.
+    Gateway configuration is read from SystemSettings (admin-managed DB record),
+    not from environment variables, so UI-saved values govern delivery.
     """
-    from django.conf import settings
-    from .models import OutboundChannel, OutboundMessage, OutboundStatus
+    from .models import OutboundChannel, OutboundMessage, OutboundStatus, SystemSettings
     from .dispatcher import _send_smtp, _send_sms
 
-    smtp_host = getattr(settings, "SMTP_HOST", "")
-    sms_url = getattr(settings, "SMS_GATEWAY_URL", "")
+    cfg = SystemSettings.get()
 
     queued = OutboundMessage.objects.filter(
         status=OutboundStatus.QUEUED
     ).select_related("notification__user")
 
-    sent = 0
+    attempted = 0
+    sent_success = 0
     for msg in queued:
-        if msg.channel == OutboundChannel.SMTP and smtp_host:
-            _send_smtp(msg)
-            sent += 1
-        elif msg.channel == OutboundChannel.SMS and sms_url:
-            _send_sms(msg, sms_url)
-            sent += 1
+        if msg.channel == OutboundChannel.SMTP and cfg.smtp_host:
+            _send_smtp(msg, cfg)
+            attempted += 1
+        elif msg.channel == OutboundChannel.SMS and cfg.sms_gateway_url:
+            _send_sms(msg, cfg.sms_gateway_url)
+            attempted += 1
+        else:
+            continue
+        msg.refresh_from_db()
+        if msg.status == OutboundStatus.SENT:
+            sent_success += 1
 
-    return {"sent": sent}
+    return {"attempted": attempted, "sent_success": sent_success}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 365-day retention purge
+# ─────────────────────────────────────────────────────────────────────────────
+
+@shared_task(name="notifications.purge_old_notification_records")
+def purge_old_notification_records() -> dict:
+    """
+    Nightly. Delete Notification and OutboundMessage rows older than 365 days.
+
+    OutboundMessage is deleted first (FK → Notification) to avoid constraint
+    violations on databases that do not cascade deletes automatically.
+    """
+    from .models import Notification, OutboundMessage
+
+    cutoff = timezone.now() - timedelta(days=365)
+
+    # Outbound messages reference Notifications — delete them first
+    deleted_outbound, _ = OutboundMessage.objects.filter(created_at__lt=cutoff).delete()
+    deleted_notif, _ = Notification.objects.filter(created_at__lt=cutoff).delete()
+
+    return {
+        "notifications_deleted": deleted_notif,
+        "outbound_deleted": deleted_outbound,
+        "cutoff": cutoff.isoformat(),
+    }

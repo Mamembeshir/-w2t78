@@ -70,38 +70,45 @@ def dispatch_event(
 
 
 def _queue_outbound(notification: "Notification") -> None:
-    """Queue SMTP and/or SMS outbound messages based on configured gateways."""
-    from django.conf import settings
-    from .models import OutboundChannel, OutboundMessage
+    """
+    Create SMTP and SMS OutboundMessage rows for this notification and attempt
+    immediate delivery if the respective gateway is configured in SystemSettings.
 
-    smtp_host = getattr(settings, "SMTP_HOST", "")
-    sms_url = getattr(settings, "SMS_GATEWAY_URL", "")
+    Rows are always created (status=QUEUED) so that when no gateway is present
+    messages remain available for manual export per SPEC §7.
+    """
+    from .models import OutboundChannel, OutboundMessage, SystemSettings
 
-    if smtp_host:
-        msg = OutboundMessage.objects.create(
-            notification=notification,
-            channel=OutboundChannel.SMTP,
-        )
-        _send_smtp(msg)
+    cfg = SystemSettings.get()
 
-    if sms_url:
-        msg = OutboundMessage.objects.create(
-            notification=notification,
-            channel=OutboundChannel.SMS,
-        )
-        _send_sms(msg, sms_url)
+    smtp_msg = OutboundMessage.objects.create(
+        notification=notification,
+        channel=OutboundChannel.SMTP,
+    )
+    if cfg.smtp_host:
+        _send_smtp(smtp_msg, cfg)
 
-    # If no gateway is configured, no OutboundMessage is created.
-    # In-app notification is always available.
+    sms_msg = OutboundMessage.objects.create(
+        notification=notification,
+        channel=OutboundChannel.SMS,
+    )
+    if cfg.sms_gateway_url:
+        _send_sms(sms_msg, cfg.sms_gateway_url)
 
 
-def _send_smtp(outbound: "OutboundMessage") -> None:
-    """Attempt SMTP delivery; update status in-place."""
+def _send_smtp(outbound: "OutboundMessage", cfg=None) -> None:
+    """
+    Attempt SMTP delivery; update status in-place.
+
+    cfg — SystemSettings instance (fetched from DB if not supplied).
+    """
     import smtplib
     from email.mime.text import MIMEText
-    from django.conf import settings
     from django.utils import timezone
-    from .models import OutboundStatus
+    from .models import OutboundStatus, SystemSettings
+
+    if cfg is None:
+        cfg = SystemSettings.get()
 
     n = outbound.notification
     recipient = getattr(n.user, "email", "") or ""
@@ -114,11 +121,11 @@ def _send_smtp(outbound: "OutboundMessage") -> None:
     try:
         msg = MIMEText(n.body)
         msg["Subject"] = n.title
-        msg["From"] = f"warehouse-notifications@{settings.SMTP_HOST}"
+        msg["From"] = f"warehouse-notifications@{cfg.smtp_host}"
         msg["To"] = recipient
 
-        with smtplib.SMTP(settings.SMTP_HOST, getattr(settings, "SMTP_PORT", 25)) as s:
-            if getattr(settings, "SMTP_USE_TLS", False):
+        with smtplib.SMTP(cfg.smtp_host, cfg.smtp_port) as s:
+            if cfg.smtp_use_tls:
                 s.starttls()
             s.sendmail(msg["From"], [recipient], msg.as_string())
 

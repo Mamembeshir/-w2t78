@@ -11,10 +11,50 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # ─────────────────────────────────────────────────────────────────────────────
 # Core
 # ─────────────────────────────────────────────────────────────────────────────
-SECRET_KEY = os.environ.get(
-    "DJANGO_SECRET_KEY",
-    "insecure-dev-key-replace-before-any-real-use",
-)
+def _get_secret_key() -> str:
+    """
+    Return DJANGO_SECRET_KEY from the environment.
+    Raises ImproperlyConfigured on any non-test startup when the variable is
+    absent or empty, preventing accidental token-forgery exposure in deployment.
+    Test runs (manage.py test / pytest) use a dedicated test-only placeholder.
+    """
+    import sys as _sys_early
+    _testing_early = "test" in _sys_early.argv or "pytest" in _sys_early.modules
+
+    _PLACEHOLDER_PATTERNS = (
+        "change_me",
+        "changeme",
+        "replace_with",
+        "your_secret",
+        "secret_key",
+        "example",
+        "placeholder",
+        "fixme",
+        "todo",
+    )
+
+    value = os.environ.get("DJANGO_SECRET_KEY", "").strip()
+    if value:
+        if not _testing_early:
+            lower = value.lower()
+            if any(pat in lower for pat in _PLACEHOLDER_PATTERNS):
+                from django.core.exceptions import ImproperlyConfigured
+                raise ImproperlyConfigured(
+                    "DJANGO_SECRET_KEY contains a placeholder value and must be "
+                    "replaced before running in non-test mode. "
+                    "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(64))\""
+                )
+        return value
+    if _testing_early:
+        return "test-only-secret-key-not-for-production-do-not-use-outside-ci"
+    from django.core.exceptions import ImproperlyConfigured
+    raise ImproperlyConfigured(
+        "DJANGO_SECRET_KEY environment variable is not set. "
+        "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(64))\""
+    )
+
+
+SECRET_KEY = _get_secret_key()
 DEBUG = os.environ.get("DEBUG", "False") == "True"
 
 # Self-registration for Procurement Analyst role.
@@ -250,30 +290,44 @@ _DEV_FERNET_KEY = "yJ7SB6N0BHk2PUlnL_6W2cmTQVbbtB83dr9JOwbr5l0="
 
 
 def _resolve_encryption_key() -> str:
-    """Return a valid Fernet key, falling back to the dev default if the
-    environment value is absent, empty, or not accepted by Fernet."""
-    from cryptography.fernet import Fernet, InvalidToken  # noqa: F401
+    """Return a valid Fernet key.
+
+    In test runs, falls back to the embedded dev key so CI requires no secrets.
+    In production, raises ImproperlyConfigured when:
+      - FIELD_ENCRYPTION_KEY is absent or malformed
+      - the value is the publicly known dev key (_DEV_FERNET_KEY)
+      - the value begins with "CHANGE_ME" (copied from .env.example verbatim)
+    """
+    from cryptography.fernet import Fernet
     candidate = os.environ.get("FIELD_ENCRYPTION_KEY", "").strip()
-    if candidate:
+
+    # A candidate is usable only when it is non-empty, not a placeholder, and
+    # not the publicly known dev fallback key.
+    is_usable = (
+        candidate
+        and not candidate.upper().startswith("CHANGE_ME")
+        and candidate != _DEV_FERNET_KEY
+    )
+
+    if is_usable:
         try:
             Fernet(candidate)   # raises ValueError if key is malformed
             return candidate
         except Exception:
             pass
-    return _DEV_FERNET_KEY
+
+    if _TESTING:
+        return _DEV_FERNET_KEY
+
+    from django.core.exceptions import ImproperlyConfigured
+    raise ImproperlyConfigured(
+        "FIELD_ENCRYPTION_KEY is not set, is a placeholder (CHANGE_ME…), or uses "
+        "the publicly known dev key. Generate a real key with: "
+        "python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
+    )
 
 
 FIELD_ENCRYPTION_KEY = _resolve_encryption_key()
-
-# Warn loudly when falling back to the dev key outside of test runs.
-if not _TESTING and FIELD_ENCRYPTION_KEY == _DEV_FERNET_KEY:
-    import warnings
-    warnings.warn(
-        "FIELD_ENCRYPTION_KEY is not set or is invalid. Using the insecure dev "
-        "default key. Set a valid Fernet key before going to production.",
-        RuntimeWarning,
-        stacklevel=2,
-    )
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Celery — local Redis broker/backend only
@@ -304,6 +358,7 @@ CELERY_TASK_ROUTES = {
     "inventory.*": {"queue": "inventory"},
     "notifications.*": {"queue": "notifications"},
     "audit.purge_old_audit_logs": {"queue": "notifications"},
+    "crawling.purge_old_crawl_records": {"queue": "crawl.0"},
 }
 
 # Periodic task schedule — stored in DB via django_celery_beat DatabaseScheduler
@@ -314,6 +369,16 @@ CELERY_BEAT_SCHEDULE = {
     "purge-old-audit-logs": {
         "task": "audit.purge_old_audit_logs",
         "schedule": crontab(hour=2, minute=0),
+    },
+    # Nightly notification/outbound purge at 02:10 UTC — 365-day retention
+    "purge-old-notification-records": {
+        "task": "notifications.purge_old_notification_records",
+        "schedule": crontab(hour=2, minute=10),
+    },
+    # Nightly crawl task/log purge at 02:20 UTC — 365-day retention
+    "purge-old-crawl-records": {
+        "task": "crawling.purge_old_crawl_records",
+        "schedule": crontab(hour=2, minute=20),
     },
     # Daily slow-moving stock detection at 01:00 UTC
     "flag-slow-moving-items": {
