@@ -6,18 +6,18 @@
 #
 # Usage:
 #   ./run_tests.sh           Run full test suite (default)
-#   ./run_tests.sh start     Start all services only (no tests)
-#   ./run_test.sh stop       Stop all services
-#   ./run_test.sh restart    Restart all services
-#   ./run_test.sh build      Rebuild all images then start
-#   ./run_test.sh logs       Tail logs for all services
-#   ./run_test.sh logs <svc> Tail logs for one service (e.g. backend)
-#   ./run_test.sh status     Show container status
-#   ./run_test.sh test              Run full test suite — backend + frontend (inside Docker)
-#   ./run_test.sh test-backend      Run backend tests only (inside Docker)
-#   ./run_test.sh test-frontend     Run frontend Vitest suite only (inside Docker)
-#   ./run_test.sh test-e2e          Run Playwright E2E suite (requires stack running)
-#   ./run_test.sh shell             Open Django shell inside backend container
+#   ./run_tests.sh start            Start all services only (no tests)
+#   ./run_tests.sh stop             Stop all services
+#   ./run_tests.sh restart          Restart all services
+#   ./run_tests.sh build            Rebuild all images then start
+#   ./run_tests.sh logs             Tail logs for all services
+#   ./run_tests.sh logs <svc>       Tail logs for one service (e.g. backend)
+#   ./run_tests.sh status           Show container status
+#   ./run_tests.sh test             Run full test suite — backend + frontend + E2E (inside Docker)
+#   ./run_tests.sh test-backend     Run backend tests only (inside Docker)
+#   ./run_tests.sh test-frontend    Run frontend Vitest suite only (inside Docker)
+#   ./run_tests.sh test-e2e         Run Playwright E2E suite (containerized)
+#   ./run_tests.sh shell            Open Django shell inside backend container
 # =============================================================================
 
 set -euo pipefail
@@ -212,7 +212,7 @@ wait_for_http() {
     (( elapsed += 2 ))
     echo -ne "  ${YELLOW}...${elapsed}s${RESET}\r"
   done
-  warn "$label did not respond within ${timeout}s — check logs with: ./run_test.sh logs"
+  warn "$label did not respond within ${timeout}s — check logs with: ./run_tests.sh logs"
   return 1
 }
 
@@ -257,12 +257,12 @@ print_urls() {
   echo -e "  ${BOLD}Redis (host):${RESET}           ${CYAN}localhost:${redis_port}${RESET}"
   echo ""
   echo -e "  ${YELLOW}Useful commands:${RESET}"
-  echo -e "    ${BOLD}./run_test.sh logs${RESET}           — tail all logs"
-  echo -e "    ${BOLD}./run_test.sh logs backend${RESET}   — tail backend only"
-  echo -e "    ${BOLD}./run_test.sh status${RESET}         — show container status"
-  echo -e "    ${BOLD}./run_test.sh test${RESET}           — run full test suite (backend + frontend + E2E)"
-  echo -e "    ${BOLD}./run_test.sh test-e2e${RESET}       — run Playwright E2E only"
-  echo -e "    ${BOLD}./run_test.sh stop${RESET}           — stop all services"
+  echo -e "    ${BOLD}./run_tests.sh logs${RESET}           — tail all logs"
+  echo -e "    ${BOLD}./run_tests.sh logs backend${RESET}   — tail backend only"
+  echo -e "    ${BOLD}./run_tests.sh status${RESET}         — show container status"
+  echo -e "    ${BOLD}./run_tests.sh test${RESET}           — run full test suite (backend + frontend + E2E)"
+  echo -e "    ${BOLD}./run_tests.sh test-e2e${RESET}       — run Playwright E2E only"
+  echo -e "    ${BOLD}./run_tests.sh stop${RESET}           — stop all services"
   echo ""
 }
 
@@ -459,10 +459,13 @@ cmd_test_e2e() {
   # on macOS/Windows Docker Desktop where the alias is provided automatically.
   local frontend_url="http://host.docker.internal:${FRONTEND_PORT:-5173}"
 
-  info "Running Playwright tests (stack at $frontend_url)..."
+  local api_url="http://host.docker.internal:${BACKEND_PORT:-8000}"
+
+  info "Running Playwright tests (frontend=$frontend_url  api=$api_url)..."
   docker run --rm \
     --add-host=host.docker.internal:host-gateway \
     -e FRONTEND_URL="$frontend_url" \
+    -e API_URL="$api_url" \
     -v "$e2e_dir/playwright-report:/e2e/playwright-report" \
     "$image_tag" "$@"
 }
