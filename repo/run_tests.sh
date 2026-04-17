@@ -467,6 +467,7 @@ cmd_test_e2e() {
     -e FRONTEND_URL="$frontend_url" \
     -e API_URL="$api_url" \
     -v "$e2e_dir/playwright-report:/e2e/playwright-report" \
+    -v "$e2e_dir/test-results:/e2e/test-results" \
     "$image_tag" "$@"
 }
 

@@ -171,7 +171,10 @@ services:
       - path: .env
         required: false
     environment:
-      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+      # Server-side proxy target for Vite's /api rewrite rule (not embedded in
+      # browser bundle — no VITE_ prefix).  Points to the backend service name
+      # inside the Docker network.
+      API_PROXY_TARGET: http://backend:8000
     volumes:
       - ./frontend:/app
       - /app/node_modules

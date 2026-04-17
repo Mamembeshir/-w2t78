@@ -16,10 +16,16 @@ export default defineConfig({
     host: '0.0.0.0',   // bind to all interfaces for Docker + LAN access
     port: 5173,
     strictPort: true,  // fail fast if port taken
+    // Allow the Docker-internal hostname used by the containerised E2E runner.
+    // Vite 5+ blocks unknown Host headers by default (security hardening).
+    allowedHosts: ['host.docker.internal'],
     proxy: {
-      // All /api/* requests forwarded to Django backend inside Docker network
+      // All /api/* requests forwarded to Django backend.
+      // API_PROXY_TARGET is set by docker-compose (http://backend:8000).
+      // Defaults to http://localhost:8000 for local dev outside Docker.
+      // NOT a VITE_-prefixed var — never embedded in browser bundle.
       '/api': {
-        target: process.env.VITE_API_BASE_URL ?? 'http://backend:8000',
+        target: process.env.API_PROXY_TARGET ?? 'http://localhost:8000',
         changeOrigin: true,
         // Do not rewrite path — Django expects /api/... intact
       },

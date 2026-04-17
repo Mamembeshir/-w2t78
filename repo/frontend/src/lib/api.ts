@@ -8,7 +8,11 @@
  */
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios'
 
-const BASE_URL = (import.meta.env.VITE_API_BASE_URL as string) || 'http://localhost:8000'
+// Empty string → relative URLs → requests go to the same origin as the page.
+// In dev (Docker or local): Vite's /api proxy forwards them to Django.
+// In production: nginx's /api location forwards them to gunicorn.
+// Set VITE_API_BASE_URL only when you need to override (e.g. cross-origin staging).
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL as string) ?? ''
 
 export const api = axios.create({
   baseURL: BASE_URL,
