@@ -60,7 +60,7 @@ services:
       DB_PASSWORD:          ${DB_PASSWORD:-warehouse_pass}
       DB_PORT:              ${DB_PORT:-3306}
       DJANGO_SECRET_KEY:    ${DJANGO_SECRET_KEY:-insecure-dev-key-do-not-use-in-production}
-      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend,0.0.0.0}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend,0.0.0.0,host.docker.internal}
       REDIS_URL:            redis://redis:6379/0
       CELERY_BROKER_URL:    redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
@@ -103,7 +103,7 @@ services:
       DB_PASSWORD:          ${DB_PASSWORD:-warehouse_pass}
       DB_PORT:              ${DB_PORT:-3306}
       DJANGO_SECRET_KEY:    ${DJANGO_SECRET_KEY:-insecure-dev-key-do-not-use-in-production}
-      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend,0.0.0.0}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend,0.0.0.0,host.docker.internal}
       REDIS_URL:            redis://redis:6379/0
       CELERY_BROKER_URL:    redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
@@ -141,7 +141,7 @@ services:
       DB_PASSWORD:          ${DB_PASSWORD:-warehouse_pass}
       DB_PORT:              ${DB_PORT:-3306}
       DJANGO_SECRET_KEY:    ${DJANGO_SECRET_KEY:-insecure-dev-key-do-not-use-in-production}
-      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend,0.0.0.0}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend,0.0.0.0,host.docker.internal}
       REDIS_URL:            redis://redis:6379/0
       CELERY_BROKER_URL:    redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
