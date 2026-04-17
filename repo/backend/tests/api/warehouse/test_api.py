@@ -77,6 +77,36 @@ class WarehouseAPITests(TestCase):
         resp = self.client.post("/api/warehouses/", {"name": "B", "code": "DUP01"})
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_retrieve_warehouse(self):
+        wh = Warehouse.objects.create(name="Detail WH", code="DET01", address="1 Main St")
+        auth(self.client, self.inv_token)
+        resp = self.client.get(f"/api/warehouses/{wh.pk}/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.json()["code"], "DET01")
+        self.assertIn("name", resp.json())
+
+    def test_full_update_warehouse(self):
+        wh = Warehouse.objects.create(name="Old Name", code="PUT01")
+        auth(self.client, self.admin_token)
+        resp = self.client.put(
+            f"/api/warehouses/{wh.pk}/",
+            {"name": "New Name", "code": "PUT01", "address": "2 New St"},
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.json()["name"], "New Name")
+        self.assertEqual(resp.json()["address"], "2 New St")
+
+    def test_retrieve_warehouse_unauthenticated(self):
+        wh = Warehouse.objects.create(name="No Auth", code="NOAUTH")
+        resp = self.client.get(f"/api/warehouses/{wh.pk}/")
+        self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_full_update_warehouse_non_admin_forbidden(self):
+        wh = Warehouse.objects.create(name="Protected", code="PROT01")
+        auth(self.client, self.inv_token)
+        resp = self.client.put(f"/api/warehouses/{wh.pk}/", {"name": "X", "code": "PROT01"})
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Bin API
@@ -108,4 +138,34 @@ class BinAPITests(TestCase):
     def test_create_bin_non_admin_forbidden(self):
         auth(self.client, self.inv_token)
         resp = self.client.post(f"/api/warehouses/{self.wh.pk}/bins/", {"code": "B02"})
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_retrieve_bin(self):
+        b = Bin.objects.create(warehouse=self.wh, code="R01", description="Rack R1")
+        auth(self.client, self.inv_token)
+        resp = self.client.get(f"/api/warehouses/{self.wh.pk}/bins/{b.pk}/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.json()["code"], "R01")
+
+    def test_full_update_bin(self):
+        b = Bin.objects.create(warehouse=self.wh, code="PUT01")
+        auth(self.client, self.admin_token)
+        resp = self.client.put(
+            f"/api/warehouses/{self.wh.pk}/bins/{b.pk}/",
+            {"code": "PUT01", "description": "Updated description"},
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.json()["description"], "Updated description")
+
+    def test_partial_update_bin(self):
+        b = Bin.objects.create(warehouse=self.wh, code="PATCH01", description="Old")
+        auth(self.client, self.admin_token)
+        resp = self.client.patch(f"/api/warehouses/{self.wh.pk}/bins/{b.pk}/", {"description": "New"})
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.json()["description"], "New")
+
+    def test_update_bin_non_admin_forbidden(self):
+        b = Bin.objects.create(warehouse=self.wh, code="NOPUT")
+        auth(self.client, self.inv_token)
+        resp = self.client.patch(f"/api/warehouses/{self.wh.pk}/bins/{b.pk}/", {"description": "x"})
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)

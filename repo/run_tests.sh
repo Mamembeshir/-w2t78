@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # =============================================================================
-# run_test.sh — Warehouse Intelligence & Offline Crawling Operations Platform
-# Starts all services (DB, Redis, backend, worker, beat, frontend) in the
-# correct order and waits for each tier to be healthy before proceeding.
+# run_tests.sh — Warehouse Intelligence & Offline Crawling Operations Platform
+# Default: run the full test suite (backend → frontend → E2E).
+# Use `start` to bring up services without running tests.
 #
 # Usage:
-#   ./run_test.sh            Start all services (default)
-#   ./run_test.sh start      Start all services
+#   ./run_tests.sh           Run full test suite (default)
+#   ./run_tests.sh start     Start all services only (no tests)
 #   ./run_test.sh stop       Stop all services
 #   ./run_test.sh restart    Restart all services
 #   ./run_test.sh build      Rebuild all images then start
@@ -16,6 +16,7 @@
 #   ./run_test.sh test              Run full test suite — backend + frontend (inside Docker)
 #   ./run_test.sh test-backend      Run backend tests only (inside Docker)
 #   ./run_test.sh test-frontend     Run frontend Vitest suite only (inside Docker)
+#   ./run_test.sh test-e2e          Run Playwright E2E suite (requires stack running)
 #   ./run_test.sh shell             Open Django shell inside backend container
 # =============================================================================
 
@@ -259,7 +260,8 @@ print_urls() {
   echo -e "    ${BOLD}./run_test.sh logs${RESET}           — tail all logs"
   echo -e "    ${BOLD}./run_test.sh logs backend${RESET}   — tail backend only"
   echo -e "    ${BOLD}./run_test.sh status${RESET}         — show container status"
-  echo -e "    ${BOLD}./run_test.sh test${RESET}           — run full test suite (backend + frontend)"
+  echo -e "    ${BOLD}./run_test.sh test${RESET}           — run full test suite (backend + frontend + E2E)"
+  echo -e "    ${BOLD}./run_test.sh test-e2e${RESET}       — run Playwright E2E only"
   echo -e "    ${BOLD}./run_test.sh stop${RESET}           — stop all services"
   echo ""
 }
@@ -335,31 +337,66 @@ cmd_test_backend() {
 }
 
 # Run frontend Vitest suite inside Docker.
-# --no-deps skips the backend dependency; Vitest is pure in-memory.
+# Reuses the cached image if it already exists and the Dockerfile + src haven't
+# changed (detected via a checksum of the build context inputs).
 cmd_test_frontend() {
   check_docker
   header "Frontend tests — inside Docker (Vitest)"
-  # Build the image directly so node_modules are installed inside the image
-  # for the correct platform (Linux). No host volume mounts — fully isolated.
-  info "Building frontend test image..."
-  docker build \
-    --target test \
-    --tag warehouse-frontend-test:ci \
-    --file "$SCRIPT_DIR/frontend/Dockerfile" \
-    "$SCRIPT_DIR/frontend" \
-    > /dev/null
+
+  local image_tag="warehouse-frontend-test:ci"
+  local checksum_file="$SCRIPT_DIR/.frontend-test-image.sha"
+
+  # Compute a checksum over build inputs AND test source files.
+  # Changing a test file triggers a rebuild so the image always has the
+  # latest tests baked in (the volume mount is a belt-and-suspenders backup).
+  local current_sha
+  current_sha=$(find "$SCRIPT_DIR/frontend" \
+    -name "Dockerfile" -o -name "package.json" -o -name "package-lock.json" \
+    -o -name "*.test.ts" -o -name "*.test.tsx" \
+    | sort | xargs sha256sum 2>/dev/null | sha256sum | cut -c1-16)
+
+  local cached_sha=""
+  [[ -f "$checksum_file" ]] && cached_sha=$(cat "$checksum_file")
+
+  # Check if image exists in Docker
+  local image_exists=false
+  docker image inspect "$image_tag" &>/dev/null && image_exists=true
+
+  if [[ "$image_exists" == "true" && "$current_sha" == "$cached_sha" ]]; then
+    info "Reusing cached frontend test image ($image_tag) — build inputs unchanged."
+  else
+    info "Building frontend test image (inputs changed or image missing)..."
+    docker build \
+      --target test \
+      --tag "$image_tag" \
+      --file "$SCRIPT_DIR/frontend/Dockerfile" \
+      "$SCRIPT_DIR/frontend" \
+      > /dev/null
+    echo "$current_sha" > "$checksum_file"
+    success "Frontend test image built and cached."
+  fi
+
   info "Running: vitest run"
-  docker run --rm warehouse-frontend-test:ci npm run test
+  # Mount the live src tree so that new/edited test files are picked up
+  # immediately without needing a full image rebuild.
+  docker run --rm \
+    -v "$SCRIPT_DIR/frontend/src:/app/src:ro" \
+    "$image_tag" npm run test
 }
 
-# Single command: run both suites entirely inside Docker.
+# Single command: run all suites — backend, frontend, and E2E.
+# Pass --no-e2e to skip the E2E suite (e.g. in environments without a browser).
 cmd_test() {
   load_ports
   check_docker
-  header "Full test suite — backend + frontend (all inside Docker)"
+  header "Full test suite — backend + frontend + E2E"
+
+  local run_e2e=true
+  for arg in "$@"; do [[ "$arg" == "--no-e2e" ]] && run_e2e=false; done
 
   local backend_exit=0
   local frontend_exit=0
+  local e2e_exit=0
 
   # ── Backend ────────────────────────────────────────────────────────────────
   echo ""
@@ -375,15 +412,48 @@ cmd_test() {
   info "▶ Frontend tests (Vitest)"
   cmd_test_frontend || frontend_exit=$?
 
+  # ── E2E ────────────────────────────────────────────────────────────────────
+  if [[ "$run_e2e" == "true" ]]; then
+    echo ""
+    info "▶ E2E tests (Playwright)"
+    # Stack must be running; start it if not already up
+    if ! curl -sf "http://localhost:${BACKEND_PORT:-8000}/api/health/" -o /dev/null 2>/dev/null; then
+      info "Stack not running — starting services for E2E..."
+      cmd_start
+    fi
+    cmd_test_e2e || e2e_exit=$?
+  fi
+
   # ── Summary ────────────────────────────────────────────────────────────────
   echo ""
-  if (( backend_exit == 0 && frontend_exit == 0 )); then
-    success "All tests passed  (backend ✓   frontend ✓)"
+  if (( backend_exit == 0 && frontend_exit == 0 && e2e_exit == 0 )); then
+    success "All tests passed  (backend ✓   frontend ✓   e2e ✓)"
   else
     (( backend_exit  != 0 )) && error "Backend tests FAILED  (exit $backend_exit)"
     (( frontend_exit != 0 )) && error "Frontend tests FAILED  (exit $frontend_exit)"
+    (( e2e_exit      != 0 )) && error "E2E tests FAILED  (exit $e2e_exit)"
     return 1
   fi
+}
+
+# Run Playwright E2E suite against the live stack.
+# Requires the stack to be running (./run_tests.sh start) or called after cmd_start.
+# Installs Playwright browsers on first run; subsequent runs are instant.
+cmd_test_e2e() {
+  header "E2E tests — Playwright (full-stack, real browser)"
+
+  local e2e_dir="$SCRIPT_DIR/e2e"
+
+  if [[ ! -d "$e2e_dir/node_modules" ]]; then
+    info "Installing Playwright dependencies..."
+    (cd "$e2e_dir" && npm install --silent)
+    info "Installing Playwright browsers (first run)..."
+    (cd "$e2e_dir" && npx playwright install --with-deps chromium)
+    success "Playwright ready."
+  fi
+
+  info "Running Playwright tests..."
+  (cd "$e2e_dir" && npx playwright test "$@")
 }
 
 cmd_shell() {
@@ -407,7 +477,7 @@ ensure_env() {
 
 # ── Entrypoint ────────────────────────────────────────────────────────────────
 main() {
-  local cmd="${1:-start}"
+  local cmd="${1:-test}"
   shift || true
 
   cd "$SCRIPT_DIR"
@@ -420,14 +490,15 @@ main() {
     build)          cmd_build ;;
     logs)           cmd_logs "${1:-}" ;;
     status)         cmd_status ;;
-    test)           cmd_test ;;
+    test)           cmd_test "$@" ;;
     test-backend)   cmd_test_backend ;;
     test-frontend)  cmd_test_frontend ;;
+    test-e2e)       cmd_test_e2e "$@" ;;
     shell)          cmd_shell ;;
     *)
       error "Unknown command: $cmd"
       echo ""
-      echo "Usage: $0 [start|stop|restart|build|logs|status|test|test-backend|test-frontend|shell]"
+      echo "Usage: $0 [test|start|stop|restart|build|logs|status|test-backend|test-frontend|test-e2e|shell]"
       exit 1
       ;;
   esac

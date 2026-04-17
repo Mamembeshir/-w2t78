@@ -98,6 +98,23 @@ class OutboundQueuedTests(TestCase):
         resp = self.client.get("/api/notifications/outbound/queued/")
         self.assertEqual(resp.json()["count"], 0)
 
+    def test_retrieve_queued_message_detail(self):
+        msg = self._create_queued_message()
+        resp = self.client.get(f"/api/notifications/outbound/queued/{msg.pk}/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.json()
+        self.assertIn("channel", data)
+        self.assertIn("status", data)
+        self.assertEqual(data["status"], OutboundStatus.QUEUED)
+
+    def test_retrieve_queued_message_non_admin_forbidden(self):
+        msg = self._create_queued_message()
+        client2 = APIClient()
+        token = login(client2, "out_user")
+        auth(client2, token)
+        resp = client2.get(f"/api/notifications/outbound/queued/{msg.pk}/")
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 7.8 send_outbound_queued task

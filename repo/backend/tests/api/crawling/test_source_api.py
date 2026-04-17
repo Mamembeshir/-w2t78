@@ -99,3 +99,59 @@ class SourceAPITests(TestCase):
         auth(self.client, self.token)
         resp = self.client.get(f"/api/crawl/sources/{src.pk}/")
         self.assertEqual(resp.json()["active_rule_version"], rv.pk)
+
+    def test_full_update_source(self):
+        src = make_source("PUT_SRC")
+        auth(self.client, self.token)
+        resp = self.client.put(f"/api/crawl/sources/{src.pk}/", {
+            "name": "PUT_SRC",
+            "base_url": "http://updated.local",
+            "rate_limit_rpm": 120,
+            "crawl_delay_seconds": 5,
+            "user_agents": ["UpdatedAgent/2.0"],
+        }, format="json")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.json()["base_url"], "http://updated.local")
+        self.assertEqual(resp.json()["rate_limit_rpm"], 120)
+
+    def test_full_update_source_inventory_manager_forbidden(self):
+        src = make_source("PUT_FORBID")
+        auth(self.client, self.inv_token)
+        resp = self.client.put(f"/api/crawl/sources/{src.pk}/", {
+            "name": "PUT_FORBID",
+            "base_url": "http://x.local",
+            "rate_limit_rpm": 10,
+            "crawl_delay_seconds": 1,
+            "user_agents": ["X/1"],
+        }, format="json")
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    # ── Quota endpoint ─────────────────────────────────────────────────────────
+
+    def test_quota_returns_zero_when_no_acquisitions(self):
+        """GET /api/crawl/sources/:id/quota/ returns current_count=0 for a fresh source."""
+        src = make_source("QUOTA_FRESH")
+        auth(self.client, self.token)
+        resp = self.client.get(f"/api/crawl/sources/{src.pk}/quota/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.json()
+        self.assertEqual(data["current_count"], 0)
+        self.assertEqual(data["rpm_limit"], 60)
+
+    def test_quota_reflects_acquisitions(self):
+        """GET .../quota/ current_count increments after quota acquisitions."""
+        from crawling.quota import acquire_quota
+        src = make_source("QUOTA_ACQ")
+        acquire_quota(src)
+        acquire_quota(src)
+        auth(self.client, self.token)
+        resp = self.client.get(f"/api/crawl/sources/{src.pk}/quota/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.json()["current_count"], 2)
+
+    def test_quota_forbidden_for_inventory_manager(self):
+        """INVENTORY_MANAGER gets 403 on the quota endpoint."""
+        src = make_source("QUOTA_403")
+        auth(self.client, self.inv_token)
+        resp = self.client.get(f"/api/crawl/sources/{src.pk}/quota/")
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)

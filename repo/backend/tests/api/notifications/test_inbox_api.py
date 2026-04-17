@@ -123,3 +123,26 @@ class InboxAPITests(TestCase):
         )
         resp = self.client.post(f"/api/notifications/inbox/{n.pk}/read/")
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_retrieve_notification_detail(self):
+        n = self._make_notification(title="Detail Test")
+        resp = self.client.get(f"/api/notifications/inbox/{n.pk}/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.json()
+        self.assertEqual(data["title"], "Detail Test")
+        self.assertIn("body", data)
+        self.assertIn("is_read", data)
+
+    def test_retrieve_notification_detail_other_user_404(self):
+        other = create_user("inbox_detail_other")
+        n = Notification.objects.create(
+            user=other, event_type=EventType.SYSTEM, title="Not Mine", body="."
+        )
+        resp = self.client.get(f"/api/notifications/inbox/{n.pk}/")
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_retrieve_notification_detail_unauthenticated(self):
+        n = self._make_notification()
+        client2 = __import__("rest_framework").test.APIClient()
+        resp = client2.get(f"/api/notifications/inbox/{n.pk}/")
+        self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)

@@ -1,10 +1,13 @@
 """
 tests/crawling/test_rule_version_api.py — Rule version API tests.
 
-Covers create, activate, canary, rollback, and list operations on rule versions.
+Covers create, activate, canary, rollback, list, and test-probe operations
+on rule versions.
 """
 import json
+from unittest.mock import MagicMock, patch
 
+import requests as req_lib
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework import status
@@ -133,3 +136,67 @@ class RuleVersionAPITests(TestCase):
         resp = self.client.get(f"/api/crawl/sources/{self.source.pk}/rule-versions/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(resp.json()["count"], 2)
+
+    # ── POST .../test/ — dry-run probe ────────────────────────────────────────
+
+    def test_rule_test_returns_probe_result_on_success(self):
+        """POST .../test/ fires the probe and returns status_code, duration_ms, snippet."""
+        rv = make_rule_version(self.source, version_number=1)
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.text = "<html>OK</html>"
+        with patch("requests.get", return_value=mock_resp):
+            resp = self.client.post(f"/api/crawl/rule-versions/{rv.pk}/test/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.json()
+        self.assertEqual(data["status_code"], 200)
+        self.assertIsNotNone(data["duration_ms"])
+        self.assertIsNone(data["error"])
+        self.assertIn("snippet", data)
+
+    def test_rule_test_snippet_contains_response_body(self):
+        """Snippet field echoes the first 500 chars of the response body."""
+        rv = make_rule_version(self.source, version_number=1)
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.text = "Hello from supplier"
+        with patch("requests.get", return_value=mock_resp):
+            resp = self.client.post(f"/api/crawl/rule-versions/{rv.pk}/test/")
+        self.assertIn("Hello from supplier", resp.json()["snippet"])
+
+    def test_rule_test_handles_network_error(self):
+        """POST .../test/ returns error field and null status_code on network failure."""
+        rv = make_rule_version(self.source, version_number=1)
+        with patch("requests.get", side_effect=req_lib.ConnectionError("Connection refused")):
+            resp = self.client.post(f"/api/crawl/rule-versions/{rv.pk}/test/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.json()
+        self.assertIsNone(data["status_code"])
+        self.assertIsNotNone(data["error"])
+        self.assertIn("Connection refused", data["error"])
+
+    def test_rule_test_duration_ms_is_non_negative(self):
+        """duration_ms is always a non-negative integer."""
+        rv = make_rule_version(self.source, version_number=1)
+        mock_resp = MagicMock()
+        mock_resp.status_code = 404
+        mock_resp.text = "Not Found"
+        with patch("requests.get", return_value=mock_resp):
+            resp = self.client.post(f"/api/crawl/rule-versions/{rv.pk}/test/")
+        self.assertGreaterEqual(resp.json()["duration_ms"], 0)
+
+    def test_rule_test_forbidden_for_inventory_manager(self):
+        """INVENTORY_MANAGER gets 403 on the test endpoint."""
+        rv = make_rule_version(self.source, version_number=1)
+        inv = create_user("rv_test_inv", Role.INVENTORY_MANAGER)
+        inv_token = login(self.client, "rv_test_inv")
+        auth(self.client, inv_token)
+        resp = self.client.post(f"/api/crawl/rule-versions/{rv.pk}/test/")
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_rule_test_unauthenticated_returns_401(self):
+        """Unauthenticated requests to .../test/ receive 401."""
+        rv = make_rule_version(self.source, version_number=1)
+        self.client.credentials()  # clear token
+        resp = self.client.post(f"/api/crawl/rule-versions/{rv.pk}/test/")
+        self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
