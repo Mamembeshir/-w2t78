@@ -92,11 +92,11 @@ Thumbs.db
 # =============================================================================
 .tox/
 .nox/
-# Playwright
-e2e/node_modules/
-e2e/playwright-report/
-e2e/test-results/
-e2e/.auth/
+# Playwright (tests live under frontend/tests/e2e/)
+frontend/tests/e2e/node_modules/
+frontend/tests/e2e/playwright-report/
+frontend/tests/e2e/test-results/
+frontend/tests/e2e/.auth/
 # Frontend test image checksum (local cache marker)
 .frontend-test-image.sha
 

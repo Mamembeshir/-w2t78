@@ -352,7 +352,7 @@ cmd_test_frontend() {
   local current_sha
   current_sha=$(find "$SCRIPT_DIR/frontend" \
     -name "Dockerfile" -o -name "package.json" -o -name "package-lock.json" \
-    -o -name "*.test.ts" -o -name "*.test.tsx" \
+    -o -name "*.test.ts" -o -name "*.test.tsx" -o -name "vitest.config.ts" \
     | sort | xargs sha256sum 2>/dev/null | sha256sum | cut -c1-16)
 
   local cached_sha=""
@@ -377,10 +377,11 @@ cmd_test_frontend() {
   fi
 
   info "Running: vitest run"
-  # Mount the live src tree so that new/edited test files are picked up
-  # immediately without needing a full image rebuild.
+  # Mount both src and tests so that edits to either are picked up immediately
+  # without needing a full image rebuild.
   docker run --rm \
     -v "$SCRIPT_DIR/frontend/src:/app/src:ro" \
+    -v "$SCRIPT_DIR/frontend/tests:/app/tests:ro" \
     "$image_tag" npm run test
 }
 
@@ -436,24 +437,34 @@ cmd_test() {
   fi
 }
 
-# Run Playwright E2E suite against the live stack.
+# Run Playwright E2E suite inside a Docker container against the live stack.
 # Requires the stack to be running (./run_tests.sh start) or called after cmd_start.
-# Installs Playwright browsers on first run; subsequent runs are instant.
+# Uses the official Playwright Docker image — no local browser/npm install needed.
 cmd_test_e2e() {
-  header "E2E tests — Playwright (full-stack, real browser)"
+  header "E2E tests — Playwright (containerized, full-stack, real browser)"
 
-  local e2e_dir="$SCRIPT_DIR/e2e"
+  local e2e_dir="$SCRIPT_DIR/frontend/tests/e2e"
+  local image_tag="warehouse-e2e:ci"
 
-  if [[ ! -d "$e2e_dir/node_modules" ]]; then
-    info "Installing Playwright dependencies..."
-    (cd "$e2e_dir" && npm install --silent)
-    info "Installing Playwright browsers (first run)..."
-    (cd "$e2e_dir" && npx playwright install --with-deps chromium)
-    success "Playwright ready."
-  fi
+  info "Building E2E test image (--target e2e from frontend/Dockerfile)..."
+  docker build --quiet \
+    --target e2e \
+    --tag "$image_tag" \
+    --file "$SCRIPT_DIR/frontend/Dockerfile" \
+    "$SCRIPT_DIR/frontend"
+  success "E2E image ready."
 
-  info "Running Playwright tests..."
-  (cd "$e2e_dir" && npx playwright test "$@")
+  # Reach the host stack from inside the container.
+  # --add-host=host.docker.internal:host-gateway works on Linux and is a no-op
+  # on macOS/Windows Docker Desktop where the alias is provided automatically.
+  local frontend_url="http://host.docker.internal:${FRONTEND_PORT:-5173}"
+
+  info "Running Playwright tests (stack at $frontend_url)..."
+  docker run --rm \
+    --add-host=host.docker.internal:host-gateway \
+    -e FRONTEND_URL="$frontend_url" \
+    -v "$e2e_dir/playwright-report:/e2e/playwright-report" \
+    "$image_tag" "$@"
 }
 
 cmd_shell() {
