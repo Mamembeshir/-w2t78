@@ -40,7 +40,7 @@ CMD ["npm", "run", "test"]
 # ── E2E stage ─────────────────────────────────────────────────────────────────
 # Uses the official Playwright image which has Chromium and all system deps
 # pre-installed.  Only the npm package (@playwright/test) is installed here.
-FROM mcr.microsoft.com/playwright:v1.52.0-jammy AS e2e
+FROM mcr.microsoft.com/playwright:v1.59.1-jammy AS e2e
 
 WORKDIR /e2e
 
